@@ -17,6 +17,10 @@
 #define Ignition_Relay  22
 #define Battery_Relay   12
 #define Jetson_Boot     1111 // FIXME:
+#define Throttle_Pin    2222
+#define Brake_Pin       3333
+#define Gear_Pin        4444
+#define Steering_Pin    5555
 
 // gear options
 #define GEAR_P 0
@@ -34,6 +38,12 @@ void setBrakes(int);
 void setSteering(int);
 void setThrottle(int);
 
+// init actuators
+Servo brakeServo;
+Servo throttleServo;
+Servo gearServo;
+Servo steerServo;
+
 void setup()
 {
     Serial.begin(9600);
@@ -42,6 +52,12 @@ void setup()
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
     pinMode(Jetson_Boot, OUTPUT);
+
+    // attach servos
+    brakeServo.attach(Brake_Pin);
+    throttleServo.attach(Throttle_Pin);
+    gearServo.attach(Gear_Pin);
+    steerServo.attach(Steering_Pin);
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -58,7 +74,7 @@ void setup()
 void loop()
 {
 
-
+    // main state machine
     switch(state)
     {
         case PARK:
