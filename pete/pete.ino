@@ -9,8 +9,10 @@
 #define REVERSE_RC  5
 
 // Arduino pins
-#define RC_CH_2     22 // brake
-#define RC_CH_8     26 // ignition
+#define RC_CH_2     22 // brake (left stick, y axis)
+#define RC_CH_8     26 // ignition (left bottom trigger toggle)
+#define RC_CH_1     3  // steering (right stick, x axis)
+#define RC_CH_7     28 // test input for ignition
 
 #define Gear_Pot  A2
 #define Brake_Pot A3
@@ -20,8 +22,8 @@
 #define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
 #define Brake_Out       2
-#define Gear_Out        3
-#define Steering_Out    0 // fix this
+#define Gear_Out        0 // fix this
+#define Steering_Out    4
 
 // gear options
 #define GEAR_P 0
@@ -49,7 +51,7 @@
 Servo brakeServo;
 Servo throttleServo;
 Servo gearServo;
-Servo steerServo;
+Servo steeringServo;
 
 // init state machine
 int state = PARK;
@@ -58,7 +60,7 @@ int state = PARK;
 int rc_throttle = THROTTLE_ZERO;
 int rc_brake = BRAKE_MAX;
 int rc_gear = GEAR_P;
-int rc_steer = STEER_MIDDLE;
+int rc_steering = STEER_MIDDLE;
 int rc_stop = 0;
 
 // jetson vars
@@ -81,13 +83,13 @@ void setup()
     brakeServo.attach(Brake_Out);
     throttleServo.attach(Throttle_Out);
     gearServo.attach(Gear_Out);
-    steerServo.attach(Steering_Out);
+    steeringServo.attach(Steering_Out);
 
     // init servos
     brakeServo.write(BRAKE_MAX);
     throttleServo.write(THROTTLE_ZERO);
     gearServo.write(GEAR_P);
-    steerServo.write(STEER_MIDDLE);
+    steeringServo.write(STEER_MIDDLE);
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -102,7 +104,7 @@ void loop()
 {
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
-    int ch_2_PWM = RCToPWM(ch_2_stick);
+    int ch_2_PWM = RCToThrottle(ch_2_stick);
     
     // stick down, brakes on
     if (ch_2_PWM > 100)
@@ -125,13 +127,27 @@ void loop()
 
     // igntion from RC controller
     int ch_8_ignition = pulseIn(RC_CH_8, HIGH, 25000);
-    Serial.print(ch_8_ignition);
-    Serial.print("\t");
-    Serial.println(rc_throttle);
-    bool ignition_flag = false;
+//    Serial.print(ch_8_ignition);
+//    Serial.print("\t");
+//    Serial.println(rc_throttle);
+    bool ignition_flag = false;    
 
     if (ch_8_ignition > 1750) ignition_flag = true;
     else ignition_flag = false;
+
+    int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
+    int ch_1_PWM = RCToSteering(ch_1_steering);
+    
+    Serial.print("steering: ");
+    Serial.print(ch_1_PWM);
+    Serial.print("\t");
+    Serial.println(ch_1_steering);
+    
+//    rc_steering = ch_1_PWM;
+    steeringServo.write(ch_1_PWM);
+
+    // delay for testing steering
+    delay(10);
 
     // listen for Jetson
     // maybe not safe for scheduling
@@ -174,7 +190,7 @@ void loop()
             startEngine();
             setGear(GEAR_N);
 
-            state = NEUTRAL_RC;
+            state = DRIVE_RC;
             break;
         }
         case NEUTRAL_RC:
@@ -182,7 +198,7 @@ void loop()
             brakeServo.write(rc_brake);
             throttleServo.write(rc_throttle);
 
-            /// if RC asks for DRIVE_RC
+            // if RC asks for DRIVE_RC
                 // setBrakes(BRAKE_ZERO);
                 // setThrottle(THROTTLE_ZERO);
                 // setGear(GEAR_D);
@@ -199,7 +215,9 @@ void loop()
         case DRIVE_RC:
         {
             // set/actuate all outputs
-            // Throttle Control
+            brakeServo.write(rc_brake);
+            throttleServo.write(rc_throttle);
+            steeringServo.write(rc_steering);
 
             // if request AI transition
                 // setBrakes(BRAKE_ZERO);
@@ -262,11 +280,23 @@ bool setGear(int gear)
     //ONLY RETURN ONCE GEAR IS IN POSITION
 }
 
-int RCToPWM(int pulse)
+int RCToThrottle(int pulse)
 {
     if ( pulse > 1000 ) {
       pulse = map(pulse, 1000, 2000, -500, 500);
       pulse = constrain(pulse, -255, 255);
+    } else {
+      pulse = 0;
+    }
+
+    // Anything in deadzone should stop the motor
+    return pulse;
+}
+
+int RCToSteering(int pulse)
+{
+    if ( pulse > 1000 ) {
+      pulse = map(pulse, 1110, 1930, 0, 180);
     } else {
       pulse = 0;
     }
