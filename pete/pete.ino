@@ -15,7 +15,7 @@
 #define RC_CH_1     3  // steering (right stick, x axis)
 //#define RC_CH_7     28 // test input for ignition
 
-#define Gear_Pot  A2
+#define Gear_Pot  A7
 #define Brake_Pot A3
 
 #define Ignition_Relay  9
@@ -95,8 +95,8 @@ void setup()
     // init servos
     brakeServo.write(BRAKE_MAX);
     throttleServo.write(THROTTLE_ZERO);
-    gearServo.write(GEAR_P);
     steeringServo.write(STEER_MIDDLE);
+    setGear(GEAR_P);
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -118,8 +118,6 @@ void loop()
     {
         rc_throttle = THROTTLE_ZERO;
         rc_brake = BRAKE_MAX;
-        gear_lever_state = GEAR_D;
-        Serial.print("brake+gear");
     }
     // stick up, throttle on
     else if (ch_2_PWM < -100)
@@ -300,19 +298,19 @@ bool setGear(int gearState)
     {
         case GEAR_P:
             //Parking
-            moveGearActuator(635);
+            moveGearActuator(700);
             break;
         case GEAR_R:
             //Reverse
-            moveGearActuator(535);
+            //moveGearActuator(535);
             break;
         case GEAR_N:
             //Neutral
-            moveGearActuator(477);
+            //moveGearActuator(477);
             break;
         case GEAR_D:
             //Drive
-            moveGearActuator(425);
+            moveGearActuator(400);
         default:
             // statements
             return;
