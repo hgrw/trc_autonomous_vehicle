@@ -21,7 +21,7 @@
 #define Battery_Relay   8
 #define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
-#define Brake_Out       2
+#define Brake_Out       5
 #define Gear_Out        0 // fix this
 #define Steering_Out    4
 
