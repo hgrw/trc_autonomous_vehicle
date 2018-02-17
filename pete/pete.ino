@@ -182,7 +182,7 @@ void loop()
             brakeServo.write(rc_brake);
             throttleServo.write(rc_throttle);
 
-            // if RC asks for DRIVE_RC
+            /// if RC asks for DRIVE_RC
                 // setBrakes(BRAKE_ZERO);
                 // setThrottle(THROTTLE_ZERO);
                 // setGear(GEAR_D);
