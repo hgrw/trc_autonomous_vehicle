@@ -16,13 +16,14 @@
 #define RC_CH_3     6 // possible ignition
 
 #define Gear_Pot  A7
-#define Brake_Pot A3
+#define Brake_Pot A0
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
 //#define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
-#define Brake_Out       5
+#define Brake_Dir_Out   34
+#define Brake_PWM_Out   36
 #define Gear_Dir_Out    52
 #define Gear_PWM_Out    48
 #define Steering_Out    4
@@ -38,8 +39,9 @@
 #define BRAKE_MAX   180
 
 // throttle constants
-#define THROTTLE_ZERO 180
-#define THROTTLE_MAX  90
+#define THROTTLE_ZERO     170
+#define THROTTLE_SENSIBLE 140
+#define THROTTLE_MAX      90
 
 // steering constants
 #define STEER_HARD_LEFT     0
@@ -60,6 +62,7 @@ int state = PARK;
 
 // misc vars
 int gear_lever_state = GEAR_P;
+int brake_state = BRAKE_ZERO;
 
 // RC vars
 int rc_throttle = THROTTLE_ZERO;
@@ -87,16 +90,17 @@ void setup()
     pinMode(Gear_Dir_Out, OUTPUT);
 
     // attach servos
-    brakeServo.attach(Brake_Out);
     throttleServo.attach(Throttle_Out);
     gearServo.attach(Gear_PWM_Out);
     steeringServo.attach(Steering_Out);
-
+    pinMode(Brake_PWM_Out, OUTPUT);
+    pinMode(Brake_Dir_Out, OUTPUT);
+    
     // init servos
-    brakeServo.write(BRAKE_MAX);
+    brake_state = BRAKE_ZERO;
     throttleServo.write(THROTTLE_ZERO);
     steeringServo.write(STEER_MIDDLE);
-    setGear(GEAR_P);
+    gear_lever_state = GEAR_P;
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -107,8 +111,10 @@ void setup()
 //    digitalWrite(Jetson_Boot, LOW);
 }
 
+int counter = 0;
+
 void loop()
-{
+{  
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
@@ -122,7 +128,7 @@ void loop()
     // stick up, throttle on
     else if (ch_2_PWM < -100)
     {
-        rc_throttle = THROTTLE_MAX;
+        rc_throttle = THROTTLE_SENSIBLE;
         rc_brake = BRAKE_ZERO;
     }
     // not braking or throttle
@@ -152,8 +158,9 @@ void loop()
     
     rc_steering = ch_1_PWM;
 
-    // gear select
+    // gear and brake loops select
     setGear(gear_lever_state);
+    setBrake(brake_state);
 
     // delay for testing steering
     delay(10);
@@ -176,33 +183,36 @@ void loop()
         case PARK:
         {
             // actuate brakes on, throttle as RC
-            brakeServo.write(BRAKE_MAX);
+            brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-  
-            if (rc_steering > 150 && rc_brake > 150)
-            {
-                state = START_CAR;
-            }
+
+//            Serial.print("brake: ");
+//            Serial.print(rc_brake);
+//            Serial.print("\tsteering: ");
+//            Serial.println(rc_steering);
+
+            counter++;
+            if (counter > 200) state = START_CAR;
 
             break;
         }
         case START_CAR:
         {          
             // brakes on, throttle off
-            brakeServo.write(BRAKE_MAX);
+            brake_state = BRAKE_MAX;
             throttleServo.write(THROTTLE_ZERO);
 
             // start engine and put in gear
-            //startEngine();
+            startEngine();
             delay(1000);
-            gear_lever_state = GEAR_D;
+            //gear_lever_state = GEAR_D;
             
             state = DRIVE_RC;
             break;
         }
 //        case NEUTRAL_RC:
 //        {
-//            brakeServo.write(rc_brake);
+//            setBrake.write(rc_brake);
 //            throttleServo.write(rc_throttle);
 //
 //            // if RC asks for DRIVE_RC
@@ -222,9 +232,9 @@ void loop()
         case DRIVE_RC:
         {
             // set/actuate all outputs
-            brakeServo.write(rc_brake);
+            brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-            steeringServo.write(rc_steering);
+//            steeringServo.write(rc_steering);
 
 //            if (ignition_flag)
 //            {
@@ -240,37 +250,37 @@ void loop()
                 // state = DRIVE_AI;
             break;
         }
-        case DRIVE_AI:
-        {
-            // if stop command, switch off and go back to park mode
-            if (jetson_stop == 1)
-            {
-                state = STOP_CAR;
-                break;
-            }
-
-            //setThrottle(jetson_throttle);
-            //setBrakes(jetson_brake);
-            //setSteering(jetson_steer);
-            gear_lever_state = (jetson_gear);
-            break;
-        }
-        case REVERSE_RC:
-        {
-
-            break;
-        }
-        case STOP_CAR:
-        {
-            brakeServo.write(BRAKE_MAX);
-            
-            stopEngine();
-            delay(500);
-            gear_lever_state = PARK;
-
-            state = PARK;
-            break;
-        }
+//        case DRIVE_AI:
+//        {
+//            // if stop command, switch off and go back to park mode
+//            if (jetson_stop == 1)
+//            {
+//                state = STOP_CAR;
+//                break;
+//            }
+//
+//            //setThrottle(jetson_throttle);
+//            //setBrakes(jetson_brake);
+//            //setSteering(jetson_steer);
+//            gear_lever_state = (jetson_gear);
+//            break;
+//        }
+//        case REVERSE_RC:
+//        {
+//
+//            break;
+//        }
+//        case STOP_CAR:
+//        {
+//            brake_state = BRAKE_MAX;
+//            
+//            stopEngine();
+//            delay(500);
+//            gear_lever_state = PARK;
+//
+//            state = PARK;
+//            break;
+//        }
         default:
         {
             // should not ever end up in this state
@@ -296,7 +306,36 @@ void stopEngine()
     digitalWrite(Battery_Relay, HIGH);
 }
 
-bool setGear(int gearState)
+void setBrake(int brake_val)
+{
+    if (brake_val > 90) moveBrakeActuator(1023);
+    else moveBrakeActuator(0);
+}
+
+void moveBrakeActuator(int newpos)
+{
+    int oldpos = analogRead(Brake_Pot);
+
+    Serial.print("oldpos: ");
+    Serial.print(oldpos);
+    Serial.print("\tnewpos: ");
+    Serial.println(newpos);
+    
+    if (oldpos > newpos) 
+    {
+        digitalWrite(Brake_Dir_Out, HIGH);
+        analogWrite(Brake_PWM_Out, 1023);
+
+    } 
+    else if (newpos > oldpos) 
+    {
+        digitalWrite(Brake_Dir_Out, LOW);
+        analogWrite(Brake_PWM_Out, 1023);
+    }
+
+}
+
+void setGear(int gearState)
 {
     switch (gearState) 
     {
@@ -321,7 +360,8 @@ bool setGear(int gearState)
      }
 }
 
-void moveGearActuator(int newpos) {
+void moveGearActuator(int newpos)
+{
     int oldpos = analogRead(Gear_Pot);
   
 //    Serial.println(oldpos);
