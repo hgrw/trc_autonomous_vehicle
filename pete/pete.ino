@@ -10,10 +10,9 @@
 #define STOP_CAR    6
 
 // Arduino pins
-#define RC_CH_2     22 // brake (left stick, y axis)
-#define RC_CH_7     2 // ignition (left bottom trigger toggle)
+#define RC_CH_2     6 // throttle/brake (left stick, y axis)
+//#define RC_CH_7     2 // ignition (left bottom trigger toggle)
 #define RC_CH_1     3 // steering (right stick, x axis)
-#define RC_CH_3     6 // possible ignition
 
 #define Gear_Pot  A7
 #define Brake_Pot A0
@@ -118,6 +117,7 @@ void loop()
 {  
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
+    delay(5);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
     
     // stick down, brakes on
@@ -150,12 +150,13 @@ void loop()
 //    else ignition_flag = false;
 
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
+    delay(5);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-//    Serial.print("steering: ");
-//    Serial.print(ch_1_PWM);
-//    Serial.print("\t");
-//    Serial.println(ch_1_steering);
+    Serial.print("steering: ");
+    Serial.print(ch_1_PWM);
+    Serial.print("\t");
+    Serial.println(ch_1_steering);
     
     rc_steering = ch_1_PWM;
 
@@ -186,6 +187,7 @@ void loop()
             // actuate brakes on, throttle as RC
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
+            steeringServo.write(STEER_MIDDLE);
 
 //            Serial.print("brake: ");
 //            Serial.print(rc_brake);
@@ -202,6 +204,7 @@ void loop()
             // brakes on, throttle off
             brake_state = BRAKE_MAX;
             throttleServo.write(THROTTLE_ZERO);
+            steeringServo.write(STEER_MIDDLE);
 
             // start engine and put in gear
             startEngine();
@@ -235,7 +238,7 @@ void loop()
             // set/actuate all outputs
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-//            steeringServo.write(rc_steering);
+            steeringServo.write(rc_steering);
 
 //            if (ignition_flag)
 //            {
@@ -315,11 +318,6 @@ void stopEngine()
 void setBrake(int newpos)
 {
     int oldpos = analogRead(Brake_Pot);
-
-    Serial.print("oldpos: ");
-    Serial.print(oldpos);
-    Serial.print("\tnewpos: ");
-    Serial.println(newpos);
     
     if (oldpos >= newpos) 
     {
@@ -364,18 +362,13 @@ void moveGearActuator(int newpos)
 {
     int oldpos = analogRead(Gear_Pot);
   
-//    Serial.println(oldpos);
-    
     if (oldpos >= newpos )
     {
-//        Serial.print(" oldpos > newpos ");
         gearServo.write(180);
         digitalWrite(Gear_Dir_Out, HIGH);
     } 
     else if (newpos > oldpos) 
     {
-//        Serial.print(" newpos > oldpos ");
-    
         digitalWrite(Gear_Dir_Out, LOW);
         gearServo.write(180);
     }
