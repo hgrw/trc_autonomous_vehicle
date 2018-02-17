@@ -63,6 +63,8 @@ int state = PARK;
 // misc vars
 int gear_lever_state = GEAR_P;
 int brake_state = BRAKE_ZERO;
+int delay_counter = 0;
+int dea_man_counter = 0;
 
 // RC vars
 int rc_throttle = THROTTLE_ZERO;
@@ -111,7 +113,6 @@ void setup()
 //    digitalWrite(Jetson_Boot, LOW);
 }
 
-int counter = 0;
 
 void loop()
 {  
@@ -123,7 +124,7 @@ void loop()
     if (ch_2_PWM > 100)
     {
         rc_throttle = THROTTLE_ZERO;
-        rc_brake = BRAKE_MAX;
+        rc_brake = map(ch_2_PWM, 101, 255, 0, 1023);
     }
     // stick up, throttle on
     else if (ch_2_PWM < -100)
@@ -191,8 +192,8 @@ void loop()
 //            Serial.print("\tsteering: ");
 //            Serial.println(rc_steering);
 
-            counter++;
-            if (counter > 200) state = START_CAR;
+            delay_counter++;
+            if (delay_counter > 200) state = START_CAR;
 
             break;
         }
@@ -306,13 +307,12 @@ void stopEngine()
     digitalWrite(Battery_Relay, HIGH);
 }
 
-void setBrake(int brake_val)
-{
-    if (brake_val > 90) moveBrakeActuator(1023);
-    else moveBrakeActuator(0);
-}
+//void setBrake(int brake_val)
+//{
+//    moveBrakeActuator(brake_val);
+//}
 
-void moveBrakeActuator(int newpos)
+void setBrake(int newpos)
 {
     int oldpos = analogRead(Brake_Pot);
 
@@ -321,7 +321,7 @@ void moveBrakeActuator(int newpos)
     Serial.print("\tnewpos: ");
     Serial.println(newpos);
     
-    if (oldpos > newpos) 
+    if (oldpos >= newpos) 
     {
         digitalWrite(Brake_Dir_Out, HIGH);
         analogWrite(Brake_PWM_Out, 1023);
@@ -366,13 +366,13 @@ void moveGearActuator(int newpos)
   
 //    Serial.println(oldpos);
     
-    if (oldpos > newpos )
+    if (oldpos >= newpos )
     {
 //        Serial.print(" oldpos > newpos ");
         gearServo.write(180);
         digitalWrite(Gear_Dir_Out, HIGH);
     } 
-    else if (newpos   > oldpos) 
+    else if (newpos > oldpos) 
     {
 //        Serial.print(" newpos > oldpos ");
     
@@ -406,21 +406,21 @@ int RCToSteering(int pulse)
     return pulse;
 }
 
-int parseJetson(String data, char separator, int index)
-{
-    int found = 0;
-    int strIndex[] = { 0, -1 };
-    int maxIndex = data.length() - 1;
-
-    for (int i = 0; i <= maxIndex && found <= index; i++) {
-        if (data.charAt(i) == separator || i == maxIndex) {
-            found++;
-            strIndex[0] = strIndex[1] + 1;
-            strIndex[1] = (i == maxIndex) ? i+1 : i;
-        }
-    }
-    String val_string = found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-    int val_integer = val_string.toInt();
-
-    return val_integer;
-}
+//int parseJetson(String data, char separator, int index)
+//{
+//    int found = 0;
+//    int strIndex[] = { 0, -1 };
+//    int maxIndex = data.length() - 1;
+//
+//    for (int i = 0; i <= maxIndex && found <= index; i++) {
+//        if (data.charAt(i) == separator || i == maxIndex) {
+//            found++;
+//            strIndex[0] = strIndex[1] + 1;
+//            strIndex[1] = (i == maxIndex) ? i+1 : i;
+//        }
+//    }
+//    String val_string = found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+//    int val_integer = val_string.toInt();
+//
+//    return val_integer;
+//}
