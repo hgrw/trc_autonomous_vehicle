@@ -2,7 +2,7 @@
 
 // states for state machine
 #define PARK        0
-#define IGNITION    1
+#define START_CAR   1
 #define NEUTRAL_RC  2
 #define DRIVE_RC    3
 #define DRIVE_AI    4
@@ -11,20 +11,20 @@
 
 // Arduino pins
 #define RC_CH_2     22 // brake (left stick, y axis)
-#define RC_CH_7     26 // ignition (left bottom trigger toggle)
-#define RC_CH_1     3  // steering (right stick, x axis)
-//#define RC_CH_7     28 // test input for ignition
+#define RC_CH_7     2 // ignition (left bottom trigger toggle)
+#define RC_CH_1     3 // steering (right stick, x axis)
+#define RC_CH_3     6 // possible ignition
 
 #define Gear_Pot  A7
 #define Brake_Pot A3
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
-#define Jetson_Boot     0 // fix this
+//#define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
 #define Brake_Out       5
 #define Gear_Dir_Out    52
-#define Gear_PWM_Out    50
+#define Gear_PWM_Out    48
 #define Steering_Out    4
 
 // gear options
@@ -82,7 +82,7 @@ void setup()
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
-    pinMode(Jetson_Boot, OUTPUT);
+//    pinMode(Jetson_Boot, OUTPUT);
     pinMode(Gear_PWM_Out, OUTPUT);
     pinMode(Gear_Dir_Out, OUTPUT);
 
@@ -101,10 +101,10 @@ void setup()
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
 
-    // boot Jetson
-    digitalWrite(Jetson_Boot, HIGH);
-    delay(100);
-    digitalWrite(Jetson_Boot, LOW);
+//    // boot Jetson
+//    digitalWrite(Jetson_Boot, HIGH);
+//    delay(100);
+//    digitalWrite(Jetson_Boot, LOW);
 }
 
 void loop()
@@ -132,26 +132,25 @@ void loop()
         rc_brake = BRAKE_ZERO;
     }
 
-    // igntion from RC controller
-    int ch_7_ignition = pulseIn(RC_CH_7, HIGH, 25000);
-//    Serial.print(ch_7_ignition);
+//    // igntion from RC controller
+//    int ch_3_ignition = pulseIn(RC_CH_3, HIGH, 25000);
+//    Serial.print(ch_3_ignition);
 //    Serial.print("\t");
 //    Serial.println(rc_throttle);
-    bool ignition_flag = false;    
-
-    if (ch_7_ignition > 1750) ignition_flag = true;
-    else ignition_flag = false;
+//    bool ignition_flag = false;    
+//
+//    if (ch_3_ignition > 1750) ignition_flag = true;
+//    else ignition_flag = false;
 
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-    Serial.print("steering: ");
-    Serial.print(ch_1_PWM);
-    Serial.print("\t");
-    Serial.println(ch_1_steering);
+//    Serial.print("steering: ");
+//    Serial.print(ch_1_PWM);
+//    Serial.print("\t");
+//    Serial.println(ch_1_steering);
     
-//    rc_steering = ch_1_PWM;
-    steeringServo.write(ch_1_PWM);
+    rc_steering = ch_1_PWM;
 
     // gear select
     setGear(gear_lever_state);
@@ -159,17 +158,17 @@ void loop()
     // delay for testing steering
     delay(10);
 
-    // listen for Jetson
-    // maybe not safe for scheduling
-    while (Serial.available() > 0) {
-        String incomingSignal = Serial.readString();
-
-        int jetson_throttle = parseJetson(incomingSignal,':',0);
-        int jetson_brake = parseJetson(incomingSignal,':',1);
-        int jetson_steer = parseJetson(incomingSignal,':',2);
-        int jetson_gear = parseJetson(incomingSignal,':',3);
-        int jetson_stop = parseJetson(incomingSignal,':',4);
-    }
+//    // listen for Jetson
+//    // maybe not safe for scheduling
+//    while (Serial.available() > 0) {
+//        String incomingSignal = Serial.readString();
+//
+//        int jetson_throttle = parseJetson(incomingSignal,':',0);
+//        int jetson_brake = parseJetson(incomingSignal,':',1);
+//        int jetson_steer = parseJetson(incomingSignal,':',2);
+//        int jetson_gear = parseJetson(incomingSignal,':',3);
+//        int jetson_stop = parseJetson(incomingSignal,':',4);
+//    }
 
     // main state machine
     switch(state)
@@ -179,16 +178,15 @@ void loop()
             // actuate brakes on, throttle as RC
             brakeServo.write(BRAKE_MAX);
             throttleServo.write(rc_throttle);
-
-            if (ignition_flag)
+  
+            if (rc_steering > 150 && rc_brake > 150)
             {
-                ignition_flag = false;
-                state = IGNITION;
+                state = START_CAR;
             }
 
             break;
         }
-        case IGNITION:
+        case START_CAR:
         {          
             // brakes on, throttle off
             brakeServo.write(BRAKE_MAX);
@@ -197,8 +195,8 @@ void loop()
             // start engine and put in gear
             //startEngine();
             delay(1000);
-            
             gear_lever_state = GEAR_D;
+            
             state = DRIVE_RC;
             break;
         }
@@ -226,12 +224,13 @@ void loop()
             // set/actuate all outputs
             brakeServo.write(rc_brake);
             throttleServo.write(rc_throttle);
+            steeringServo.write(rc_steering);
 
-            if (ignition_flag)
-            {
-                ignition_flag = false;
-                state = STOP_CAR;
-            }
+//            if (ignition_flag)
+//            {
+//                ignition_flag = false;
+//                state = STOP_CAR;
+//            }
 
             // if request AI transition
                 // setBrakes(BRAKE_ZERO);
@@ -246,8 +245,7 @@ void loop()
             // if stop command, switch off and go back to park mode
             if (jetson_stop == 1)
             {
-                stopEngine();
-                state = PARK;
+                state = STOP_CAR;
                 break;
             }
 
@@ -264,7 +262,13 @@ void loop()
         }
         case STOP_CAR:
         {
+            brakeServo.write(BRAKE_MAX);
             
+            stopEngine();
+            delay(500);
+            gear_lever_state = PARK;
+
+            state = PARK;
             break;
         }
         default:
