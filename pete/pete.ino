@@ -143,6 +143,7 @@ void loop()
         rc_brake = BRAKE_ZERO;
     }
 
+// CAN'T READ MORE THAN TWO PWM AT ONCE
 //    // igntion from RC controller
 //    int ch_3_ignition = pulseIn(RC_CH_3, HIGH, 25000);
 //    Serial.print(ch_3_ignition);
@@ -210,7 +211,7 @@ void loop()
             // start engine and put in gear
             startEngine();
             delay(1000);
-            //gear_lever_state = GEAR_D;
+            gear_lever_state = GEAR_D;
             
             state = DRIVE_RC;
             break;
