@@ -7,6 +7,7 @@
 #define DRIVE_RC    3
 #define DRIVE_AI    4
 #define REVERSE_RC  5
+#define STOP_CAR    6
 
 // Arduino pins
 #define RC_CH_2     22 // brake (left stick, y axis)
@@ -22,7 +23,8 @@
 #define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
 #define Brake_Out       5
-#define Gear_Out        0 // fix this
+#define Gear_Dir_Out    52
+#define Gear_PWM_Out    50
 #define Steering_Out    4
 
 // gear options
@@ -56,6 +58,9 @@ Servo steeringServo;
 // init state machine
 int state = PARK;
 
+// misc vars
+int gear_lever_state = GEAR_P;
+
 // RC vars
 int rc_throttle = THROTTLE_ZERO;
 int rc_brake = BRAKE_MAX;
@@ -78,11 +83,13 @@ void setup()
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
     pinMode(Jetson_Boot, OUTPUT);
+    pinMode(Gear_PWM_Out, OUTPUT);
+    pinMode(Gear_Dir_Out, OUTPUT);
 
     // attach servos
     brakeServo.attach(Brake_Out);
     throttleServo.attach(Throttle_Out);
-    gearServo.attach(Gear_Out);
+    gearServo.attach(Gear_PWM_Out);
     steeringServo.attach(Steering_Out);
 
     // init servos
@@ -111,6 +118,8 @@ void loop()
     {
         rc_throttle = THROTTLE_ZERO;
         rc_brake = BRAKE_MAX;
+        gear_lever_state = GEAR_D;
+        Serial.print("brake+gear");
     }
     // stick up, throttle on
     else if (ch_2_PWM < -100)
@@ -127,9 +136,9 @@ void loop()
 
     // igntion from RC controller
     int ch_7_ignition = pulseIn(RC_CH_7, HIGH, 25000);
-    Serial.print(ch_7_ignition);
-    Serial.print("\t");
-    Serial.println(rc_throttle);
+//    Serial.print(ch_7_ignition);
+//    Serial.print("\t");
+//    Serial.println(rc_throttle);
     bool ignition_flag = false;    
 
     if (ch_7_ignition > 1750) ignition_flag = true;
@@ -138,13 +147,16 @@ void loop()
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-//    Serial.print("steering: ");
-//    Serial.print(ch_1_PWM);
-//    Serial.print("\t");
-//    Serial.println(ch_1_steering);
+    Serial.print("steering: ");
+    Serial.print(ch_1_PWM);
+    Serial.print("\t");
+    Serial.println(ch_1_steering);
     
 //    rc_steering = ch_1_PWM;
     steeringServo.write(ch_1_PWM);
+
+    // gear select
+    setGear(gear_lever_state);
 
     // delay for testing steering
     delay(10);
@@ -172,57 +184,62 @@ void loop()
 
             if (ignition_flag)
             {
+                ignition_flag = false;
                 state = IGNITION;
             }
 
             break;
         }
         case IGNITION:
-        {
-            // reset flag
-            ignition_flag = false;
-          
+        {          
             // brakes on, throttle off
             brakeServo.write(BRAKE_MAX);
             throttleServo.write(THROTTLE_ZERO);
 
-            // start engine and put in neutral
-            startEngine();
-            setGear(GEAR_N);
-
+            // start engine and put in gear
+            //startEngine();
+            delay(1000);
+            
+            gear_lever_state = GEAR_D;
             state = DRIVE_RC;
             break;
         }
-        case NEUTRAL_RC:
-        {
-            brakeServo.write(rc_brake);
-            throttleServo.write(rc_throttle);
-
-            // if RC asks for DRIVE_RC
-                // setBrakes(BRAKE_ZERO);
-                // setThrottle(THROTTLE_ZERO);
-                // setGear(GEAR_D);
-                // state = DRIVE_RC;
-
-            // if RC asks for DRIVE_AI
-                // setBrakes(BRAKE_ZERO);
-                // setThrottle(THROTTLE_ZERO);
-                // setSteering(STEER_MIDDLE);
-                // setGear(GEAR_D);
-                // state = DRIVE_AI;
-            break;
-        }
+//        case NEUTRAL_RC:
+//        {
+//            brakeServo.write(rc_brake);
+//            throttleServo.write(rc_throttle);
+//
+//            // if RC asks for DRIVE_RC
+//                // setBrakes(BRAKE_ZERO);
+//                // setThrottle(THROTTLE_ZERO);
+//                // gear_lever_state = (GEAR_D);
+//                // state = DRIVE_RC;
+//
+//            // if RC asks for DRIVE_AI
+//                // setBrakes(BRAKE_ZERO);
+//                // setThrottle(THROTTLE_ZERO);
+//                // setSteering(STEER_MIDDLE);
+//                // gear_lever_state = (GEAR_D);
+//                // state = DRIVE_AI;
+//            break;
+//        }
         case DRIVE_RC:
         {
             // set/actuate all outputs
             brakeServo.write(rc_brake);
             throttleServo.write(rc_throttle);
 
+            if (ignition_flag)
+            {
+                ignition_flag = false;
+                state = STOP_CAR;
+            }
+
             // if request AI transition
                 // setBrakes(BRAKE_ZERO);
                 // setThrottle(THROTTLE_ZERO);
                 // setSteering(STEER_MIDDLE);
-                // setGear(GEAR_D);
+                // gear_lever_state = (GEAR_D);
                 // state = DRIVE_AI;
             break;
         }
@@ -239,12 +256,17 @@ void loop()
             //setThrottle(jetson_throttle);
             //setBrakes(jetson_brake);
             //setSteering(jetson_steer);
-            setGear(jetson_gear);
+            gear_lever_state = (jetson_gear);
             break;
         }
         case REVERSE_RC:
         {
 
+            break;
+        }
+        case STOP_CAR:
+        {
+            
             break;
         }
         default:
@@ -272,11 +294,49 @@ void stopEngine()
     digitalWrite(Battery_Relay, HIGH);
 }
 
-bool setGear(int gear)
+bool setGear(int gearState)
 {
-    // set gear position (actuate shifter)
+    switch (gearState) 
+    {
+        case GEAR_P:
+            //Parking
+            moveGearActuator(635);
+            break;
+        case GEAR_R:
+            //Reverse
+            moveGearActuator(535);
+            break;
+        case GEAR_N:
+            //Neutral
+            moveGearActuator(477);
+            break;
+        case GEAR_D:
+            //Drive
+            moveGearActuator(425);
+        default:
+            // statements
+            return;
+     }
+}
 
-    //ONLY RETURN ONCE GEAR IS IN POSITION
+void moveGearActuator(int newpos) {
+    int oldpos = analogRead(Gear_Pot);
+  
+//    Serial.println(oldpos);
+    
+    if (oldpos > newpos )
+    {
+//        Serial.print(" oldpos > newpos ");
+        gearServo.write(180);
+        digitalWrite(Gear_Dir_Out, HIGH);
+    } 
+    else if (newpos   > oldpos) 
+    {
+//        Serial.print(" newpos > oldpos ");
+    
+        digitalWrite(Gear_Dir_Out, LOW);
+        gearServo.write(180);
+    }
 }
 
 int RCToThrottle(int pulse)
