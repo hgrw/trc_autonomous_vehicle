@@ -9,19 +9,19 @@
 #define REVERSE_RC  5
 
 // Arduino pins
-#define RC_CH_2         22 // brake
-#define RC_CH_8         24 // ignition
+#define RC_CH_2     22 // brake
+#define RC_CH_8     26 // ignition
 
 #define Gear_Pot  A2
 #define Brake_Pot A3
 
-#define Ignition_Relay  13
-#define Battery_Relay   12
-#define Jetson_Boot     1111
+#define Ignition_Relay  9
+#define Battery_Relay   8
+#define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
 #define Brake_Out       2
 #define Gear_Out        3
-#define Steering_Out    5555
+#define Steering_Out    0 // fix this
 
 // gear options
 #define GEAR_P 0
@@ -30,12 +30,12 @@
 #define GEAR_D 3
 
 // brake constants
-#define BRAKE_ZERO 0
-#define BRAKE_MAX 180
+#define BRAKE_ZERO  0
+#define BRAKE_MAX   180
 
 // throttle constants
-#define THROTTLE_ZERO 0
-#define THROTTLE_MAX 180
+#define THROTTLE_ZERO 180
+#define THROTTLE_MAX  90
 
 // steering constants
 #define STEER_HARD_LEFT     0
@@ -53,6 +53,13 @@ Servo steerServo;
 
 // init state machine
 int state = PARK;
+
+// RC vars
+int rc_throttle = THROTTLE_ZERO;
+int rc_brake = BRAKE_MAX;
+int rc_gear = GEAR_P;
+int rc_steer = STEER_MIDDLE;
+int rc_stop = 0;
 
 // jetson vars
 int jetson_throttle = THROTTLE_ZERO;
@@ -76,6 +83,12 @@ void setup()
     gearServo.attach(Gear_Out);
     steerServo.attach(Steering_Out);
 
+    // init servos
+    brakeServo.write(BRAKE_MAX);
+    throttleServo.write(THROTTLE_ZERO);
+    gearServo.write(GEAR_P);
+    steerServo.write(STEER_MIDDLE);
+
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
 
@@ -87,13 +100,35 @@ void setup()
 
 void loop()
 {
-    // brake from RC controller
-    int ch_2_brake = pulseIn(RC_CH_2, HIGH, 25000);
-    ch_2_brake = RCToPWM(ch_2_brake);
+    // left stick from RC controller
+    int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
+    int ch_2_PWM = RCToPWM(ch_2_stick);
+    
+    // stick down, brakes on
+    if (ch_2_PWM > 100)
+    {
+        rc_throttle = THROTTLE_ZERO;
+        rc_brake = BRAKE_MAX;
+    }
+    // stick up, throttle on
+    else if (ch_2_PWM < -100)
+    {
+        rc_throttle = THROTTLE_MAX;
+        rc_brake = BRAKE_ZERO;
+    }
+    // not braking or throttle
+    else if (ch_2_PWM < 100 && ch_2_PWM > -100)
+    {
+        rc_throttle = THROTTLE_ZERO;
+        rc_brake = BRAKE_ZERO;
+    }
 
     // igntion from RC controller
     int ch_8_ignition = pulseIn(RC_CH_8, HIGH, 25000);
-    ch_8_ignition = RCToPWM(ch_8_ignition);
+    //int ch_8_PWM = RCToPWM(ch_8_ignition);
+    Serial.print(ch_8_ignition);
+    Serial.print("\t");
+    Serial.println(rc_throttle);
     bool ignition_flag = false;
 
     if (ch_8_ignition > 1750) ignition_flag = true;
@@ -117,7 +152,8 @@ void loop()
         case PARK:
         {
             // actuate brakes on
-            setBrakes(BRAKE_MAX);
+            //setBrakes(BRAKE_MAX);
+            throttleServo.write(rc_throttle);
 
             if (ignition_flag)
             {
@@ -128,8 +164,9 @@ void loop()
         }
         case IGNITION:
         {
-            // brakes on
-            setBrakes(BRAKE_MAX);
+            // brakes on, throttle off
+            //etBrakes(BRAKE_MAX);
+            //setThrottle(THROTTLE_ZERO);
 
             // start engine and put in neutral
             startEngine();
@@ -140,9 +177,8 @@ void loop()
         }
         case NEUTRAL_RC:
         {
-            setBrakes(ch_2_brake);
-            //setThrottle(ch_throttle_blah);
-            //setThrottle(ch_steering_blah);
+            //setBrakes(ch_2_stick);
+            throttleServo.write(rc_throttle);
 
             // if RC asks for DRIVE_RC
                 // setBrakes(BRAKE_ZERO);
@@ -181,9 +217,9 @@ void loop()
                 break;
             }
 
-            setThrottle(jetson_throttle);
-            setBrakes(jetson_brake);
-            setSteering(jetson_steer);
+            //setThrottle(jetson_throttle);
+            //setBrakes(jetson_brake);
+            //setSteering(jetson_steer);
             setGear(jetson_gear);
             break;
         }
@@ -195,8 +231,8 @@ void loop()
         default:
         {
             // should not ever end up in this state
-            setBrakes(BRAKE_MAX);
-            setThrottle(THROTTLE_ZERO);
+            // setBrakes(BRAKE_MAX);
+            // setThrottle(THROTTLE_ZERO);
             break;
         }
     }
@@ -222,21 +258,6 @@ bool setGear(int gear)
     // set gear position (actuate shifter)
 
     //ONLY RETURN ONCE GEAR IS IN POSITION
-}
-
-void setBrakes(int brake_pos)
-{
-
-}
-
-void setSteering(int steer_angle)
-{
-
-}
-
-void setThrottle(int throttle_pos)
-{
-
 }
 
 int RCToPWM(int pulse)
