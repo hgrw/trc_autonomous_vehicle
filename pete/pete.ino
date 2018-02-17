@@ -9,11 +9,11 @@
 #define REVERSE_RC  5
 
 // Arduino pins
-#define RC_ch_2         22 // brake
-#define RC_ch_8         24 // ignition
+#define RC_CH_2         22 // brake
+#define RC_CH_8         24 // ignition
 
-#define gear_pot  A2
-#define brake_pot A3
+#define Gear_Pot  A2
+#define Brake_Pot A3
 
 #define Ignition_Relay  13
 #define Battery_Relay   12
@@ -45,14 +45,6 @@
 // misc constants
 #define CRANK_TIME 1000
 
-//function prototypes
-//void startEngine();
-//bool setGear(int);
-//void setBrakes(int);
-//void setSteering(int);
-//void setThrottle(int);
-//void RCToPWM(int);
-
 // init actuators
 Servo brakeServo;
 Servo throttleServo;
@@ -61,6 +53,13 @@ Servo steerServo;
 
 // init state machine
 int state = PARK;
+
+// jetson vars
+int jetson_throttle = THROTTLE_ZERO;
+int jetson_brake = BRAKE_MAX;
+int jetson_gear = GEAR_P;
+int jetson_steer = STEER_MIDDLE;
+int jetson_stop = 0;
 
 void setup()
 {
@@ -88,19 +87,19 @@ void setup()
 
 void loop()
 {
-    // listen to RC controller
-    int ch_2_brake = pulseIn(RC_ch_2, HIGH, 25000);
-    ch_2_brake = RCToPWM(ch_2_brake);1111
+    // brake from RC controller
+    int ch_2_brake = pulseIn(RC_CH_2, HIGH, 25000);
+    ch_2_brake = RCToPWM(ch_2_brake);
 
-    int ch_8_ignition = pulseIn(RC_ch_8, HIGH, 25000);
+    // igntion from RC controller
+    int ch_8_ignition = pulseIn(RC_CH_8, HIGH, 25000);
     ch_8_ignition = RCToPWM(ch_8_ignition);
+    bool ignition_flag = false;
+
+    if (ch_8_ignition > 1750) ignition_flag = true;
+    else ignition_flag = false;
 
     // listen for Jetson
-    int jetson_throttle = 0;
-    int jetson_brake = 0;
-    int jetson_gear = GEAR_P;
-    int jetson_steer = STEER_MIDDLE;
-
     // maybe not safe for scheduling
     while (Serial.available() > 0) {
         String incomingSignal = Serial.readString();
@@ -108,8 +107,9 @@ void loop()
         int jetson_throttle = parseJetson(incomingSignal,':',0);
         int jetson_brake = parseJetson(incomingSignal,':',1);
         int jetson_steer = parseJetson(incomingSignal,':',2);
-        // include stop commant
-     }
+        int jetson_gear = parseJetson(incomingSignal,':',3);
+        int jetson_stop = parseJetson(incomingSignal,':',4);
+    }
 
     // main state machine
     switch(state)
@@ -119,7 +119,7 @@ void loop()
             // actuate brakes on
             setBrakes(BRAKE_MAX);
 
-            if (ch_8_ignition > 1750)
+            if (ignition_flag)
             {
                 state = IGNITION;
             }
@@ -141,39 +141,50 @@ void loop()
         case NEUTRAL_RC:
         {
             setBrakes(ch_2_brake);
-
+            //setThrottle(ch_throttle_blah);
+            //setThrottle(ch_steering_blah);
 
             // if RC asks for DRIVE_RC
-                // set brakes on
-                // set throttle zero
-                // set gear GEAR_D
-                // state = DRIVE_RC
+                // setBrakes(BRAKE_ZERO);
+                // setThrottle(THROTTLE_ZERO);
+                // setGear(GEAR_D);
+                // state = DRIVE_RC;
 
             // if RC asks for DRIVE_AI
-                // set brakes on
-                // set throttle zero
-                // set steering straight
-                // set GEAR_D
-                // state = DRIVE_AI
+                // setBrakes(BRAKE_ZERO);
+                // setThrottle(THROTTLE_ZERO);
+                // setSteering(STEER_MIDDLE);
+                // setGear(GEAR_D);
+                // state = DRIVE_AI;
             break;
         }
         case DRIVE_RC:
         {
-          // listen from controller: throttle, brake, steering, etc
+            // set/actuate all outputs
+            // Throttle Control
 
-          // set/actuate all outputs
-
-          // // Throttle Control
-          // int ch_2 = pulseIn(CH_2_Pin, HIGH, 25000);
-          // ch_2 = RCToPWM(ch_2);
-          // analogWrite(RC_right_y_out, 255 - ch_2);
-
+            // if request AI transition
+                // setBrakes(BRAKE_ZERO);
+                // setThrottle(THROTTLE_ZERO);
+                // setSteering(STEER_MIDDLE);
+                // setGear(GEAR_D);
+                // state = DRIVE_AI;
             break;
         }
         case DRIVE_AI:
         {
-            // listen for Jetson command
-            // set/actuate all outputs
+            // if stop command, switch off and go back to park mode
+            if (jetson_stop == 1)
+            {
+                stopEngine();
+                state = PARK;
+                break;
+            }
+
+            setThrottle(jetson_throttle);
+            setBrake(jetson_brake);
+            setSteering(jetson_steer);
+            setGear(jetson_gear);
             break;
         }
         case REVERSE_RC:
@@ -197,6 +208,13 @@ void startEngine()
     digitalWrite(Ignition_Relay, HIGH);
     delay(CRANK_TIME);
     digitalWrite(Ignition_Relay, LOW);
+}
+
+void stopEngine()
+{
+    digitalWrite(Battery_Relay, LOW);
+    delay(1000);
+    digitalWrite(Battery_Relay, HIGH);
 }
 
 bool setGear(int gear)
