@@ -182,7 +182,7 @@ void loop()
             }
 
             setThrottle(jetson_throttle);
-            setBrake(jetson_brake);
+            setBrakes(jetson_brake);
             setSteering(jetson_steer);
             setGear(jetson_gear);
             break;
