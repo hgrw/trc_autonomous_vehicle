@@ -125,7 +125,6 @@ void loop()
 
     // igntion from RC controller
     int ch_8_ignition = pulseIn(RC_CH_8, HIGH, 25000);
-    //int ch_8_PWM = RCToPWM(ch_8_ignition);
     Serial.print(ch_8_ignition);
     Serial.print("\t");
     Serial.println(rc_throttle);
@@ -151,8 +150,8 @@ void loop()
     {
         case PARK:
         {
-            // actuate brakes on
-            //setBrakes(BRAKE_MAX);
+            // actuate brakes on, throttle as RC
+            brakeServo.write(BRAKE_MAX);
             throttleServo.write(rc_throttle);
 
             if (ignition_flag)
@@ -164,9 +163,12 @@ void loop()
         }
         case IGNITION:
         {
+            // reset flag
+            ignition_flag = false;
+          
             // brakes on, throttle off
-            //etBrakes(BRAKE_MAX);
-            //setThrottle(THROTTLE_ZERO);
+            brakeServo.write(BRAKE_MAX);
+            throttleServo.write(THROTTLE_ZERO);
 
             // start engine and put in neutral
             startEngine();
@@ -177,7 +179,7 @@ void loop()
         }
         case NEUTRAL_RC:
         {
-            //setBrakes(ch_2_stick);
+            brakeServo.write(rc_brake);
             throttleServo.write(rc_throttle);
 
             // if RC asks for DRIVE_RC
@@ -262,17 +264,15 @@ bool setGear(int gear)
 
 int RCToPWM(int pulse)
 {
-  if ( pulse > 1000 ) {
-    pulse = map(pulse, 1000, 2000, -500, 500);
-    pulse = constrain(pulse, -255, 255);
-  } else {
-    pulse = 0;
-  }
+    if ( pulse > 1000 ) {
+      pulse = map(pulse, 1000, 2000, -500, 500);
+      pulse = constrain(pulse, -255, 255);
+    } else {
+      pulse = 0;
+    }
 
-  // Anything in deadzone should stop the motor
-
-  return pulse;
-
+    // Anything in deadzone should stop the motor
+    return pulse;
 }
 
 int parseJetson(String data, char separator, int index)
