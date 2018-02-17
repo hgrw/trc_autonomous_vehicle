@@ -63,7 +63,8 @@ int state = PARK;
 int gear_lever_state = GEAR_P;
 int brake_state = BRAKE_ZERO;
 int delay_counter = 0;
-int dea_man_counter = 0;
+int dead_man_counter = 0;
+int prev_stick = 0;
 
 // RC vars
 int rc_throttle = THROTTLE_ZERO;
@@ -119,6 +120,9 @@ void loop()
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
     delay(5);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
+
+    if (ch_2_stick == prev_stick) dead_man_counter++;
+    else dead_man_counter = 0;
     
     // stick down, brakes on
     if (ch_2_PWM > 100)
@@ -153,19 +157,16 @@ void loop()
     delay(5);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-    Serial.print("steering: ");
-    Serial.print(ch_1_PWM);
-    Serial.print("\t");
-    Serial.println(ch_1_steering);
+//    Serial.print("steering: ");
+//    Serial.print(ch_1_PWM);
+//    Serial.print("\t");
+//    Serial.println(ch_1_steering);
     
     rc_steering = ch_1_PWM;
 
     // gear and brake loops select
     setGear(gear_lever_state);
     setBrake(brake_state);
-
-    // delay for testing steering
-    delay(10);
 
 //    // listen for Jetson
 //    // maybe not safe for scheduling
