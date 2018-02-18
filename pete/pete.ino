@@ -118,10 +118,9 @@ void setup()
 
 void loop()
 {  
-    delay(5);
-
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
+    delay(5);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
 
     if (ch_2_stick == prev_stick) dead_man_counter++;
@@ -158,12 +157,13 @@ void loop()
 //    else ignition_flag = false;
 
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
+    delay(5);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-    Serial.print("steering: ");
-    Serial.print(ch_1_PWM);
-    Serial.print("\t");
-    Serial.println(ch_1_steering);
+//    Serial.print("steering: ");
+//    Serial.print(ch_1_PWM);
+//    Serial.print("\t");
+//    Serial.println(ch_1_steering);
     
     rc_steering = ch_1_PWM;
 
@@ -171,42 +171,27 @@ void loop()
     setGear(gear_lever_state);
     setBrake(brake_state);
 
-    // listen for Jetson
-    if (Serial1.read() == 0xFF)
-    {
-        Serial.println("buffer");
-        
-        // wait for data
-        while (!(Serial1.available() > 3)) Serial.println("wait");
-        
-        jetson_stop = Serial1.read();
-        jetson_steer = Serial1.read();
-        jetson_throttle = Serial1.read();
-        jetson_brake = Serial1.read();
-
-//        Serial.print(" stop: ");
-//        Serial.print(jetson_stop);
-//        Serial.print(" steer: ");
-//        Serial.print(jetson_steer);
-//        Serial.print(" jetson_throttle: ");
-//        Serial.print(jetson_throttle);
-//        Serial.print(" jetson_brake: ");
-//        Serial.println(jetson_brake);
-    }
-    
-//    // maybe not safe for scheduling
-//    while (Serial1.available()) 
+//    // listen for Jetson
+//    if (Serial1.read() == 0xFF)
 //    {
-//        String incomingSignal = Serial1.readString();
+//        Serial.println("buffer");
+//        
+//        // wait for data
+//        while (!(Serial1.available() > 3)) Serial.println("wait");
+//        
+//        jetson_stop = Serial1.read();
+//        jetson_steer = Serial1.read();
+//        jetson_throttle = Serial1.read();
+//        jetson_brake = Serial1.read();
 //
-//        int jetson_throttle = parseJetson(incomingSignal,':',0);
-//        int jetson_brake = parseJetson(incomingSignal,':',1);
-//        int jetson_steer = parseJetson(incomingSignal,':',2);
-//        int jetson_gear = parseJetson(incomingSignal,':',3);
-//        int jetson_stop = parseJetson(incomingSignal,':',4);
-//
-//        Serial.print("rec\t");
-//        Serial.println(incomingSignal);
+////        Serial.print(" stop: ");
+////        Serial.print(jetson_stop);
+////        Serial.print(" steer: ");
+////        Serial.print(jetson_steer);
+////        Serial.print(" jetson_throttle: ");
+////        Serial.print(jetson_throttle);
+////        Serial.print(" jetson_brake: ");
+////        Serial.println(jetson_brake);
 //    }
 
     // main state machine
@@ -239,7 +224,7 @@ void loop()
             // start engine and put in gear
             startEngine();
             delay(1000);
-            gear_lever_state = GEAR_D;
+//            gear_lever_state = GEAR_D;
             
             state = DRIVE_RC;
             break;
