@@ -19,7 +19,7 @@
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
-#define Jetson_Boot     0 // fix this
+#define Jetson_Boot     39
 #define Throttle_Out    7
 #define Brake_Dir_Out   34
 #define Brake_PWM_Out   36
@@ -40,7 +40,7 @@
 // throttle constants
 #define THROTTLE_ZERO     170
 #define THROTTLE_LOW      160
-#define THROTTLE_SENSIBLE 120
+#define THROTTLE_SENSIBLE 140
 #define THROTTLE_MAX      90
 
 // steering constants
@@ -111,7 +111,7 @@ void setup()
 
     // boot Jetson
     digitalWrite(Jetson_Boot, HIGH);
-    delay(100);
+    delay(200);
     digitalWrite(Jetson_Boot, LOW);
 }
 
@@ -171,28 +171,28 @@ void loop()
     setGear(gear_lever_state);
     setBrake(brake_state);
 
-//    // listen for Jetson
-//    if (Serial1.read() == 0xFF)
-//    {
-//        Serial.println("buffer");
-//        
-//        // wait for data
-//        while (!(Serial1.available() > 3)) Serial.println("wait");
-//        
-//        jetson_stop = Serial1.read();
-//        jetson_steer = Serial1.read();
-//        jetson_throttle = Serial1.read();
-//        jetson_brake = Serial1.read();
+    // listen for Jetson
+    if (Serial1.read() == 0xFF)
+    {
+        Serial.println("buffer");
+        
+        // wait for data
+        while (!(Serial1.available() > 3)) Serial.println("wait");
+        
+        jetson_stop = Serial1.read();
+        jetson_steer = Serial1.read();
+        jetson_throttle = Serial1.read();
+        jetson_brake = Serial1.read();
 //
-////        Serial.print(" stop: ");
-////        Serial.print(jetson_stop);
-////        Serial.print(" steer: ");
-////        Serial.print(jetson_steer);
-////        Serial.print(" jetson_throttle: ");
-////        Serial.print(jetson_throttle);
-////        Serial.print(" jetson_brake: ");
-////        Serial.println(jetson_brake);
-//    }
+//        Serial.print(" stop: ");
+//        Serial.print(jetson_stop);
+        Serial.print(" steer: ");
+        Serial.println(jetson_steer);
+//        Serial.print(" jetson_throttle: ");
+//        Serial.print(jetson_throttle);
+//        Serial.print(" jetson_brake: ");
+//        Serial.println(jetson_brake);
+    }
 
     // main state machine
     switch(state)
@@ -224,7 +224,13 @@ void loop()
             // start engine and put in gear
             startEngine();
             delay(1000);
-//            gear_lever_state = GEAR_D;
+            gear_lever_state = GEAR_D;
+//            gear_lever_state = GEAR_P;
+
+//            // boot Jetson
+//            digitalWrite(Jetson_Boot, HIGH);
+//            delay(500);
+//            digitalWrite(Jetson_Boot, LOW);
             
             state = DRIVE_RC;
             break;
@@ -278,12 +284,14 @@ void loop()
 //                break;
 //            }
 
-            // set/actuate all outputs
-            if (jetson_brake > 0) brake_state = BRAKE_MAX;
-            else brake_state = BRAKE_ZERO;
+//            // set/actuate all outputs
+//            if (jetson_brake > 0) brake_state = BRAKE_MAX;
+//            else brake_state = BRAKE_ZERO;
+            brake_state = rc_brake;
 
-            if (jetson_throttle > 0) throttleServo.write(THROTTLE_LOW);
-            else throttleServo.write(THROTTLE_ZERO);
+//            if (jetson_throttle > 0) throttleServo.write(THROTTLE_LOW);
+//            else throttleServo.write(THROTTLE_ZERO);
+            throttleServo.write(rc_throttle);
             
             steeringServo.write(jetson_steer);
                           
