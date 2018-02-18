@@ -120,10 +120,6 @@ void loop()
 {  
     delay(5);
 
-    steeringServo.write(45);
-
-    delay(10000);
-  
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
@@ -164,10 +160,10 @@ void loop()
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
-//    Serial.print("steering: ");
-//    Serial.print(ch_1_PWM);
-//    Serial.print("\t");
-//    Serial.println(ch_1_steering);
+    Serial.print("steering: ");
+    Serial.print(ch_1_PWM);
+    Serial.print("\t");
+    Serial.println(ch_1_steering);
     
     rc_steering = ch_1_PWM;
 
@@ -245,7 +241,7 @@ void loop()
             delay(1000);
             gear_lever_state = GEAR_D;
             
-            state = DRIVE_AI;
+            state = DRIVE_RC;
             break;
         }
 //        case NEUTRAL_RC:
