@@ -19,7 +19,7 @@
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
-//#define Jetson_Boot     0 // fix this
+#define Jetson_Boot     0 // fix this
 #define Throttle_Out    7
 #define Brake_Dir_Out   34
 #define Brake_PWM_Out   36
@@ -39,7 +39,8 @@
 
 // throttle constants
 #define THROTTLE_ZERO     170
-#define THROTTLE_SENSIBLE 140
+#define THROTTLE_LOW      160
+#define THROTTLE_SENSIBLE 120
 #define THROTTLE_MAX      90
 
 // steering constants
@@ -83,11 +84,12 @@ int jetson_stop = 0;
 void setup()
 {
     Serial.begin(9600);
+    Serial1.begin(9600);
 
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
-//    pinMode(Jetson_Boot, OUTPUT);
+    pinMode(Jetson_Boot, OUTPUT);
     pinMode(Gear_PWM_Out, OUTPUT);
     pinMode(Gear_Dir_Out, OUTPUT);
 
@@ -107,18 +109,23 @@ void setup()
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
 
-//    // boot Jetson
-//    digitalWrite(Jetson_Boot, HIGH);
-//    delay(100);
-//    digitalWrite(Jetson_Boot, LOW);
+    // boot Jetson
+    digitalWrite(Jetson_Boot, HIGH);
+    delay(100);
+    digitalWrite(Jetson_Boot, LOW);
 }
 
 
 void loop()
 {  
+    delay(5);
+
+    steeringServo.write(45);
+
+    delay(10000);
+  
     // left stick from RC controller
     int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
-    delay(5);
     int ch_2_PWM = RCToThrottle(ch_2_stick);
 
     if (ch_2_stick == prev_stick) dead_man_counter++;
@@ -155,7 +162,6 @@ void loop()
 //    else ignition_flag = false;
 
     int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
-    delay(5);
     int ch_1_PWM = RCToSteering(ch_1_steering);
     
 //    Serial.print("steering: ");
@@ -169,16 +175,42 @@ void loop()
     setGear(gear_lever_state);
     setBrake(brake_state);
 
-//    // listen for Jetson
+    // listen for Jetson
+    if (Serial1.read() == 0xFF)
+    {
+        Serial.println("buffer");
+        
+        // wait for data
+        while (!(Serial1.available() > 3)) Serial.println("wait");
+        
+        jetson_stop = Serial1.read();
+        jetson_steer = Serial1.read();
+        jetson_throttle = Serial1.read();
+        jetson_brake = Serial1.read();
+
+//        Serial.print(" stop: ");
+//        Serial.print(jetson_stop);
+//        Serial.print(" steer: ");
+//        Serial.print(jetson_steer);
+//        Serial.print(" jetson_throttle: ");
+//        Serial.print(jetson_throttle);
+//        Serial.print(" jetson_brake: ");
+//        Serial.println(jetson_brake);
+    }
+    
 //    // maybe not safe for scheduling
-//    while (Serial.available() > 0) {
-//        String incomingSignal = Serial.readString();
+//    while (Serial1.available()) 
+//    {
+//        String incomingSignal = Serial1.readString();
 //
 //        int jetson_throttle = parseJetson(incomingSignal,':',0);
 //        int jetson_brake = parseJetson(incomingSignal,':',1);
 //        int jetson_steer = parseJetson(incomingSignal,':',2);
 //        int jetson_gear = parseJetson(incomingSignal,':',3);
 //        int jetson_stop = parseJetson(incomingSignal,':',4);
+//
+//        Serial.print("rec\t");
+//        Serial.println(incomingSignal);
 //    }
 
     // main state machine
@@ -213,7 +245,7 @@ void loop()
             delay(1000);
             gear_lever_state = GEAR_D;
             
-            state = DRIVE_RC;
+            state = DRIVE_AI;
             break;
         }
 //        case NEUTRAL_RC:
@@ -256,21 +288,26 @@ void loop()
                 // state = DRIVE_AI;
             break;
         }
-//        case DRIVE_AI:
-//        {
-//            // if stop command, switch off and go back to park mode
+        case DRIVE_AI:
+        {
+            // if stop command, switch off and go back to park mode
 //            if (jetson_stop == 1)
 //            {
 //                state = STOP_CAR;
 //                break;
 //            }
-//
-//            //setThrottle(jetson_throttle);
-//            //setBrakes(jetson_brake);
-//            //setSteering(jetson_steer);
-//            gear_lever_state = (jetson_gear);
-//            break;
-//        }
+
+            // set/actuate all outputs
+            if (jetson_brake > 0) brake_state = BRAKE_MAX;
+            else brake_state = BRAKE_ZERO;
+
+            if (jetson_throttle > 0) throttleServo.write(THROTTLE_LOW);
+            else throttleServo.write(THROTTLE_ZERO);
+            
+            steeringServo.write(jetson_steer);
+                          
+            break;
+        }
 //        case REVERSE_RC:
 //        {
 //
@@ -401,21 +438,21 @@ int RCToSteering(int pulse)
     return pulse;
 }
 
-//int parseJetson(String data, char separator, int index)
-//{
-//    int found = 0;
-//    int strIndex[] = { 0, -1 };
-//    int maxIndex = data.length() - 1;
-//
-//    for (int i = 0; i <= maxIndex && found <= index; i++) {
-//        if (data.charAt(i) == separator || i == maxIndex) {
-//            found++;
-//            strIndex[0] = strIndex[1] + 1;
-//            strIndex[1] = (i == maxIndex) ? i+1 : i;
-//        }
-//    }
-//    String val_string = found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-//    int val_integer = val_string.toInt();
-//
-//    return val_integer;
-//}
+int parseJetson(String data, char separator, int index)
+{
+    int found = 0;
+    int strIndex[] = { 0, -1 };
+    int maxIndex = data.length() - 1;
+
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == separator || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i+1 : i;
+        }
+    }
+    String val_string = found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+    int val_integer = val_string.toInt();
+
+    return val_integer;
+}
