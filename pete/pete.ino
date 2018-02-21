@@ -11,7 +11,6 @@
 
 // Arduino pins
 #define RC_CH_2     6 // throttle/brake (left stick, y axis)
-//#define RC_CH_7     2 // ignition (left bottom trigger toggle)
 #define RC_CH_1     3 // steering (right stick, x axis)
 
 #define Gear_Pot  A7
@@ -83,8 +82,8 @@ int jetson_stop = 0;
 
 void setup()
 {
-    Serial.begin(9600);
-    Serial1.begin(9600);
+    Serial.begin(9600);   // debug serial
+    Serial1.begin(9600);  // Jetson serial
 
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
@@ -92,13 +91,13 @@ void setup()
     pinMode(Jetson_Boot, OUTPUT);
     pinMode(Gear_PWM_Out, OUTPUT);
     pinMode(Gear_Dir_Out, OUTPUT);
+    pinMode(Brake_PWM_Out, OUTPUT);
+    pinMode(Brake_Dir_Out, OUTPUT);
 
     // attach servos
     throttleServo.attach(Throttle_Out);
     gearServo.attach(Gear_PWM_Out);
     steeringServo.attach(Steering_Out);
-    pinMode(Brake_PWM_Out, OUTPUT);
-    pinMode(Brake_Dir_Out, OUTPUT);
     
     // init servos
     brake_state = BRAKE_ZERO;
@@ -108,11 +107,6 @@ void setup()
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
-
-    // boot Jetson
-    digitalWrite(Jetson_Boot, HIGH);
-    delay(200);
-    digitalWrite(Jetson_Boot, LOW);
 }
 
 
@@ -186,8 +180,8 @@ void loop()
 //
 //        Serial.print(" stop: ");
 //        Serial.print(jetson_stop);
-        Serial.print(" steer: ");
-        Serial.println(jetson_steer);
+//        Serial.print(" steer: ");
+//        Serial.println(jetson_steer);
 //        Serial.print(" jetson_throttle: ");
 //        Serial.print(jetson_throttle);
 //        Serial.print(" jetson_brake: ");
@@ -203,11 +197,6 @@ void loop()
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
             steeringServo.write(STEER_MIDDLE);
-
-//            Serial.print("brake: ");
-//            Serial.print(rc_brake);
-//            Serial.print("\tsteering: ");
-//            Serial.println(rc_steering);
 
             delay_counter++;
             if (delay_counter > 200) state = START_CAR;
@@ -225,12 +214,12 @@ void loop()
             startEngine();
             delay(1000);
             gear_lever_state = GEAR_D;
-//            gear_lever_state = GEAR_P;
 
-//            // boot Jetson
-//            digitalWrite(Jetson_Boot, HIGH);
-//            delay(500);
-//            digitalWrite(Jetson_Boot, LOW);
+            // boot Jetson
+            delay(500);
+            digitalWrite(Jetson_Boot, HIGH);
+            delay(500);
+            digitalWrite(Jetson_Boot, LOW);
             
             state = DRIVE_RC;
             break;
@@ -337,11 +326,6 @@ void stopEngine()
     delay(1000);
     digitalWrite(Battery_Relay, HIGH);
 }
-
-//void setBrake(int brake_val)
-//{
-//    moveBrakeActuator(brake_val);
-//}
 
 void setBrake(int newpos)
 {
