@@ -14,7 +14,7 @@
 #define RC_CH_1     3 // steering (right stick, x axis)
 
 #define Gear_Pot  A7
-#define Brake_Pot A0
+#define Brake_Pot A1
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
@@ -26,17 +26,18 @@
 #define Gear_PWM_Out    48
 #define Steering_Out    4
 
-// gear options
+// gear constants
 #define GEAR_P 0
 #define GEAR_R 1
 #define GEAR_N 2
 #define GEAR_D 3
 
-#define GEAR_TOLERANCE  10
+#define GEAR_TOLERANCE  5
 
 // brake constants
 #define BRAKE_ZERO  0
 #define BRAKE_MAX   180
+#define BRAKE_TOLERANCE 5
 
 // throttle constants
 #define THROTTLE_ZERO     170
@@ -92,6 +93,8 @@ void setup()
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
     pinMode(Jetson_Boot, OUTPUT);
+    pinMode(Brake_Pot, INPUT);
+    pinMode(Gear_Pot, INPUT);
 //    pinMode(Gear_PWM_Out, OUTPUT);
 //    pinMode(Gear_Dir_Out, OUTPUT);
 //    pinMode(Brake_PWM_Out, OUTPUT);
@@ -214,7 +217,7 @@ void loop()
             steeringServo.write(STEER_MIDDLE);
 
             // start engine and put in gear
-            startEngine();
+//            startEngine();
             delay(1000);
             gear_lever_state = GEAR_D;
 
@@ -332,7 +335,7 @@ void stopEngine()
 
 void setBrake(int newpos)
 {
-    // RoboClaw Serial2 control, channel 1
+    // RoboClaw Serial2 control, channel 2
     // 128 = full reverse
     // 192 = stop
     // 255 = full forward
@@ -341,17 +344,22 @@ void setBrake(int newpos)
     
     if ( newpos <= (oldpos - BRAKE_TOLERANCE) ) 
     {
+//        Serial.print("move brake off\t");
 //        digitalWrite(Brake_Dir_Out, HIGH);
 //        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(128);
     } 
     else if ( newpos > (oldpos + BRAKE_TOLERANCE) ) 
     {
+//        Serial.print("move brake on\t");
 //        digitalWrite(Brake_Dir_Out, LOW);
 //        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(255);
     }
     else Serial2.write(192);
+
+    Serial.print("brake: ");
+    Serial.print(oldpos);
 }
 
 void setGear(int gearState)
@@ -386,6 +394,9 @@ void moveGearActuator(int newpos)
     // 65 = stop
     // 127 = full forward
     int oldpos = analogRead(Gear_Pot);
+
+    Serial.print("\tgear: ");
+    Serial.println(oldpos);
   
     if ( newpos <= (oldpos - GEAR_TOLERANCE) )
     {
