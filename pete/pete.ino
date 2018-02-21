@@ -44,7 +44,7 @@
 #define THROTTLE_ZERO     170
 #define THROTTLE_LOW      160
 #define THROTTLE_SENSIBLE 140
-#define THROTTLE_MAX      90
+#define THROTTLE_MAX      (140)  //90
 
 // steering constants
 #define STEER_HARD_LEFT     330
@@ -209,7 +209,7 @@ void loop()
             // actuate brakes on, throttle as RC
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-            steering_state = STEER_MIDDLE;
+            steering_state = rc_steering;
 //            steeringServo.write(STEER_MIDDLE);
 
             delay_counter++;
@@ -223,18 +223,18 @@ void loop()
             brake_state = BRAKE_MAX;
             throttleServo.write(THROTTLE_ZERO);
 //            steeringServo.write(STEER_MIDDLE);
-            steering_state = STEER_MIDDLE;
+            steering_state = rc_steering;
             
             // start engine and put in gear
-//            startEngine();
+            startEngine();
             delay(1000);
             gear_lever_state = GEAR_D;
 
             // boot Jetson
-            delay(500);
-            digitalWrite(Jetson_Boot, HIGH);
-            delay(500);
-            digitalWrite(Jetson_Boot, LOW);
+//            delay(500);
+//            digitalWrite(Jetson_Boot, HIGH);
+//            delay(500);
+//            digitalWrite(Jetson_Boot, LOW);
             
             state = DRIVE_RC;
             break;
@@ -431,15 +431,15 @@ void setSteering(int newpos)
     {
         // steer right
         Serial.print("steer right\t");
-        Serial.print(192 - rate);
-        Serial3.write(192 - rate);
+        Serial.print(192 + rate);
+        Serial3.write(192 + rate);
     } 
     else if ( newpos > (oldpos + STEER_TOLERANCE) ) 
     {
         // steer left
         Serial.print("steer left\t");
-        Serial.print(192 + rate);
-        Serial3.write(192 + rate);
+        Serial.print(192 - rate);
+        Serial3.write(192 - rate);
     }
     else Serial3.write(192);
 
