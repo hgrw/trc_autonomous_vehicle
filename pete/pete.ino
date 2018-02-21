@@ -129,7 +129,7 @@ void loop()
     // stick up, throttle on
     else if (ch_2_PWM < -100)
     {
-        rc_throttle = THROTTLE_SENSIBLE;
+        rc_throttle = map(ch_2_PWM, -100, -255, THROTTLE_ZERO, THROTTLE_MAX);
         rc_brake = BRAKE_ZERO;
     }
     // not braking or throttle
