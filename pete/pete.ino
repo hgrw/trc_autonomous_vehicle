@@ -32,6 +32,8 @@
 #define GEAR_N 2
 #define GEAR_D 3
 
+#define GEAR_TOLERANCE  10
+
 // brake constants
 #define BRAKE_ZERO  0
 #define BRAKE_MAX   180
@@ -84,19 +86,20 @@ void setup()
 {
     Serial.begin(9600);   // debug serial
     Serial1.begin(9600);  // Jetson serial
+    Serial2.begin(38400); // Small Roboclaw serial (brake and gear shif)
 
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
     pinMode(Jetson_Boot, OUTPUT);
-    pinMode(Gear_PWM_Out, OUTPUT);
-    pinMode(Gear_Dir_Out, OUTPUT);
-    pinMode(Brake_PWM_Out, OUTPUT);
-    pinMode(Brake_Dir_Out, OUTPUT);
+//    pinMode(Gear_PWM_Out, OUTPUT);
+//    pinMode(Gear_Dir_Out, OUTPUT);
+//    pinMode(Brake_PWM_Out, OUTPUT);
+//    pinMode(Brake_Dir_Out, OUTPUT);
 
     // attach servos
     throttleServo.attach(Throttle_Out);
-    gearServo.attach(Gear_PWM_Out);
+//    gearServo.attach(Gear_PWM_Out);
     steeringServo.attach(Steering_Out);
     
     // init servos
@@ -329,20 +332,26 @@ void stopEngine()
 
 void setBrake(int newpos)
 {
+    // RoboClaw Serial2 control, channel 1
+    // 128 = full reverse
+    // 192 = stop
+    // 255 = full forward
+    
     int oldpos = analogRead(Brake_Pot);
     
-    if (oldpos >= newpos) 
+    if ( newpos <= (oldpos - BRAKE_TOLERANCE) ) 
     {
-        digitalWrite(Brake_Dir_Out, HIGH);
-        analogWrite(Brake_PWM_Out, 1023);
-
+//        digitalWrite(Brake_Dir_Out, HIGH);
+//        analogWrite(Brake_PWM_Out, 1023);
+        Serial2.write(128);
     } 
-    else if (newpos > oldpos) 
+    else if ( newpos > (oldpos + BRAKE_TOLERANCE) ) 
     {
-        digitalWrite(Brake_Dir_Out, LOW);
-        analogWrite(Brake_PWM_Out, 1023);
+//        digitalWrite(Brake_Dir_Out, LOW);
+//        analogWrite(Brake_PWM_Out, 1023);
+        Serial2.write(255);
     }
-
+    else Serial2.write(192);
 }
 
 void setGear(int gearState)
@@ -355,11 +364,11 @@ void setGear(int gearState)
             break;
         case GEAR_R:
             //Reverse
-            //moveGearActuator(535);
+            moveGearActuator(535);
             break;
         case GEAR_N:
             //Neutral
-            //moveGearActuator(477);
+            moveGearActuator(477);
             break;
         case GEAR_D:
             //Drive
@@ -372,18 +381,25 @@ void setGear(int gearState)
 
 void moveGearActuator(int newpos)
 {
+    // RoboClaw Serial2 control, channel 1
+    // 1 = full reverse
+    // 65 = stop
+    // 127 = full forward
     int oldpos = analogRead(Gear_Pot);
   
-    if (oldpos >= newpos )
+    if ( newpos <= (oldpos - GEAR_TOLERANCE) )
     {
-        gearServo.write(180);
-        digitalWrite(Gear_Dir_Out, HIGH);
+//        gearServo.write(180);
+//        digitalWrite(Gear_Dir_Out, HIGH);
+        Serial2.write(1);
     } 
-    else if (newpos > oldpos) 
+    else if ( newpos > (oldpos + GEAR_TOLERANCE) ) 
     {
-        digitalWrite(Gear_Dir_Out, LOW);
-        gearServo.write(180);
+//        digitalWrite(Gear_Dir_Out, LOW);
+//        gearServo.write(180);
+        Serial2.write(127);
     }
+    else Serial2.write(64);
 }
 
 int RCToThrottle(int pulse)
