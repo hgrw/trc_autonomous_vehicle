@@ -11,10 +11,11 @@
 
 // Arduino pins
 #define RC_CH_2     6 // throttle/brake (left stick, y axis)
-#define RC_CH_1     3 // steering (right stick, x axis)
+#define RC_CH_1     2 // steering (right stick, x axis)
 
-#define Gear_Pot  A7
-#define Brake_Pot A1
+#define Gear_Pot      A7
+#define Steering_Pot  A0
+#define Brake_Pot     A5
 
 #define Ignition_Relay  9
 #define Battery_Relay   8
@@ -46,9 +47,10 @@
 #define THROTTLE_MAX      90
 
 // steering constants
-#define STEER_HARD_LEFT     0
-#define STEER_MIDDLE        90
-#define STEER_HARD_RIGHT    180
+#define STEER_HARD_LEFT     330
+#define STEER_MIDDLE        630
+#define STEER_HARD_RIGHT    1000
+#define STEER_TOLERANCE     20
 
 // misc constants
 #define CRANK_TIME 1000
@@ -57,7 +59,7 @@
 Servo brakeServo;
 Servo throttleServo;
 Servo gearServo;
-Servo steeringServo;
+//Servo steeringServo;
 
 // init state machine
 int state = PARK;
@@ -65,6 +67,7 @@ int state = PARK;
 // misc vars
 int gear_lever_state = GEAR_P;
 int brake_state = BRAKE_ZERO;
+int steering_state = STEER_MIDDLE;
 int delay_counter = 0;
 int dead_man_counter = 0;
 int prev_stick = 0;
@@ -87,7 +90,8 @@ void setup()
 {
     Serial.begin(9600);   // debug serial
     Serial1.begin(9600);  // Jetson serial
-    Serial2.begin(38400); // Small Roboclaw serial (brake and gear shif)
+    Serial2.begin(38400); // Small RoboClaw serial (brake and gear shift)
+    Serial3.begin(38400); // Large RoboClaw serial (steering)
 
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
@@ -95,6 +99,7 @@ void setup()
     pinMode(Jetson_Boot, OUTPUT);
     pinMode(Brake_Pot, INPUT);
     pinMode(Gear_Pot, INPUT);
+    pinMode(Steering_Pot, INPUT);
 //    pinMode(Gear_PWM_Out, OUTPUT);
 //    pinMode(Gear_Dir_Out, OUTPUT);
 //    pinMode(Brake_PWM_Out, OUTPUT);
@@ -103,13 +108,14 @@ void setup()
     // attach servos
     throttleServo.attach(Throttle_Out);
 //    gearServo.attach(Gear_PWM_Out);
-    steeringServo.attach(Steering_Out);
+//    steeringServo.attach(Steering_Out);
     
     // init servos
     brake_state = BRAKE_ZERO;
     throttleServo.write(THROTTLE_ZERO);
-    steeringServo.write(STEER_MIDDLE);
-    gear_lever_state = GEAR_R;
+//    steeringServo.write(STEER_MIDDLE);
+    gear_lever_state = GEAR_P;
+    steering_state = STEER_MIDDLE;
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -170,11 +176,12 @@ void loop()
     // gear and brake loops select
     setGear(gear_lever_state);
     setBrake(brake_state);
+    setSteering(steering_state);
 
     // listen for Jetson
     if (Serial1.read() == 0xFF)
     {
-        Serial.println("buffer");
+//        Serial.println("buffer");
         
         // wait for data
         while (!(Serial1.available() > 3)) Serial.println("wait");
@@ -202,7 +209,8 @@ void loop()
             // actuate brakes on, throttle as RC
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-            steeringServo.write(STEER_MIDDLE);
+            steering_state = STEER_MIDDLE;
+//            steeringServo.write(STEER_MIDDLE);
 
             delay_counter++;
             if (delay_counter > 200) state = START_CAR;
@@ -214,8 +222,9 @@ void loop()
             // brakes on, throttle off
             brake_state = BRAKE_MAX;
             throttleServo.write(THROTTLE_ZERO);
-            steeringServo.write(STEER_MIDDLE);
-
+//            steeringServo.write(STEER_MIDDLE);
+            steering_state = STEER_MIDDLE;
+            
             // start engine and put in gear
 //            startEngine();
             delay(1000);
@@ -254,7 +263,8 @@ void loop()
             // set/actuate all outputs
             brake_state = rc_brake;
             throttleServo.write(rc_throttle);
-            steeringServo.write(rc_steering);
+//            steeringServo.write(rc_steering);
+            steering_state = rc_steering;
 
 //            if (ignition_flag)
 //            {
@@ -288,7 +298,9 @@ void loop()
 //            else throttleServo.write(THROTTLE_ZERO);
             throttleServo.write(rc_throttle);
             
-            steeringServo.write(jetson_steer);
+//            steeringServo.write(jetson_steer);
+            steering_state = jetson_steer;
+
                           
             break;
         }
@@ -344,14 +356,10 @@ void setBrake(int newpos)
     
     if ( newpos <= (oldpos - BRAKE_TOLERANCE) ) 
     {
-//        digitalWrite(Brake_Dir_Out, HIGH);
-//        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(128);
     } 
     else if ( newpos > (oldpos + BRAKE_TOLERANCE) ) 
     {
-//        digitalWrite(Brake_Dir_Out, LOW);
-//        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(255);
     }
     else Serial2.write(192);
@@ -392,17 +400,50 @@ void moveGearActuator(int newpos)
 
     if ( newpos <= (oldpos - GEAR_TOLERANCE) )
     {
-//        gearServo.write(180);
-//        digitalWrite(Gear_Dir_Out, HIGH);
         Serial2.write(1);
     } 
     else if ( newpos > (oldpos + GEAR_TOLERANCE) ) 
     {
-//        digitalWrite(Gear_Dir_Out, LOW);
-//        gearServo.write(180);
         Serial2.write(127);
     }
     else Serial2.write(64);
+}
+
+void setSteering(int newpos)
+{
+    // RoboClaw Serial3 control, channel 2
+    // 128 = full reverse
+    // 192 = stop
+    // 255 = full forward
+
+    int oldpos = analogRead(Steering_Pot);
+    int rate = abs(newpos - oldpos)/8;
+    if ( rate > 63 ) rate = 63;
+
+    Serial.print(newpos);
+    Serial.print("\t");
+    Serial.print(oldpos);
+    Serial.print("\t");
+    Serial.print(rate);
+    Serial.print("\t");
+  
+    if ( newpos <= (oldpos - STEER_TOLERANCE) )
+    {
+        // steer right
+        Serial.print("steer right\t");
+        Serial.print(192 - rate);
+        Serial3.write(192 - rate);
+    } 
+    else if ( newpos > (oldpos + STEER_TOLERANCE) ) 
+    {
+        // steer left
+        Serial.print("steer left\t");
+        Serial.print(192 + rate);
+        Serial3.write(192 + rate);
+    }
+    else Serial3.write(192);
+
+    Serial.println();
 }
 
 int RCToThrottle(int pulse)
@@ -421,7 +462,7 @@ int RCToThrottle(int pulse)
 int RCToSteering(int pulse)
 {
     if ( pulse > 1000 ) {
-      pulse = map(pulse, 1110, 1930, 0, 180);
+      pulse = map(pulse, 1110, 1930, STEER_HARD_LEFT, STEER_HARD_RIGHT);
     } else {
       pulse = 0;
     }
