@@ -109,7 +109,7 @@ void setup()
     brake_state = BRAKE_ZERO;
     throttleServo.write(THROTTLE_ZERO);
     steeringServo.write(STEER_MIDDLE);
-    gear_lever_state = GEAR_P;
+    gear_lever_state = GEAR_R;
 
     // swtich car power on
     digitalWrite(Battery_Relay, HIGH);
@@ -344,22 +344,17 @@ void setBrake(int newpos)
     
     if ( newpos <= (oldpos - BRAKE_TOLERANCE) ) 
     {
-//        Serial.print("move brake off\t");
 //        digitalWrite(Brake_Dir_Out, HIGH);
 //        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(128);
     } 
     else if ( newpos > (oldpos + BRAKE_TOLERANCE) ) 
     {
-//        Serial.print("move brake on\t");
 //        digitalWrite(Brake_Dir_Out, LOW);
 //        analogWrite(Brake_PWM_Out, 1023);
         Serial2.write(255);
     }
     else Serial2.write(192);
-
-    Serial.print("brake: ");
-    Serial.print(oldpos);
 }
 
 void setGear(int gearState)
@@ -372,7 +367,7 @@ void setGear(int gearState)
             break;
         case GEAR_R:
             //Reverse
-            moveGearActuator(535);
+            moveGearActuator(555);
             break;
         case GEAR_N:
             //Neutral
@@ -395,9 +390,6 @@ void moveGearActuator(int newpos)
     // 127 = full forward
     int oldpos = analogRead(Gear_Pot);
 
-    Serial.print("\tgear: ");
-    Serial.println(oldpos);
-  
     if ( newpos <= (oldpos - GEAR_TOLERANCE) )
     {
 //        gearServo.write(180);
