@@ -1,3 +1,7 @@
+// Run this code on the Arduino Uno which is connected to the car ignition relay (the main battery power, 
+// not starter motor relay). It listens to the RC receiver and allows a remote kill no matter what the 
+// Jetson or main Arduino Mega are doing.
+
 #define KILL_IN   3
 #define GEAR_IN   10
 
