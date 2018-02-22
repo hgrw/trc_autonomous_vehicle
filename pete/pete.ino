@@ -44,7 +44,7 @@
 #define THROTTLE_ZERO     170
 #define THROTTLE_LOW      160
 #define THROTTLE_SENSIBLE 140
-#define THROTTLE_MAX      (140)  //90
+#define THROTTLE_MAX      90
 
 // steering constants
 #define STEER_HARD_LEFT     330
