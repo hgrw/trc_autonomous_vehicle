@@ -91,7 +91,7 @@ void setup()
     // set up pins
     pinMode(Ignition_Relay, OUTPUT);
     pinMode(Battery_Relay, OUTPUT);
-    pinMode(Jetson_Boot, OUTPUT);
+    //pinMode(Jetson_Boot, OUTPUT);
     pinMode(Brake_Pot, INPUT);
     pinMode(Gear_Pot, INPUT);
     pinMode(Steering_Pot, INPUT);
@@ -164,6 +164,7 @@ void loop()
         jetson_steer = Serial.read();
         jetson_throttle = Serial.read();
         jetson_brake = Serial.read();
+        Serial.println(jetson_steer);
 //
 //        Serial.print(" stop: ");
 //        Serial.print(jetson_stop);
