@@ -415,7 +415,7 @@ void setSteering(int newpos)
     }
     else Serial3.write(192);  // else stop steering motor
 
-    Serial.println();
+    Serial.println(newpos);
 }
 
 int RCToThrottle(int pulse)
