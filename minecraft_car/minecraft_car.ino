@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <PID_v1.h>
 
 // states for state machine
 #define PARK        0
@@ -47,10 +48,10 @@
 #define THROTTLE_MAX      90
 
 // steering constants
-#define STEER_HARD_LEFT     330
-#define STEER_MIDDLE        630
-#define STEER_HARD_RIGHT    1000
-#define STEER_TOLERANCE     20
+#define STEER_MIN           300
+#define STEER_MIDDLE        600
+#define STEER_MAX           1023
+#define STEER_TOLERANCE     10
 
 // misc constants
 #define CRANK_TIME 1000
@@ -78,7 +79,8 @@ int rc_stop = 0;
 int jetson_throttle = THROTTLE_ZERO;
 int jetson_brake = BRAKE_MAX;
 int jetson_gear = GEAR_P;
-int jetson_steer = STEER_MIDDLE;
+int steer_val = STEER_MIDDLE;
+int steer_angle = 0;
 int jetson_stop = 0;
 
 void setup()
@@ -112,68 +114,26 @@ void setup()
 
 void loop()
 {
-  /* read throttle and brake (left stick) from RC receiver
-    //  int ch_2_stick = pulseIn(RC_CH_2, HIGH, 25000);
-    //  delay(5);
-    //  int ch_2_PWM = RCToThrottle(ch_2_stick);
-
-    // stick down, brakes on
-    //  if (ch_2_PWM > 100)
-    {
-      rc_throttle = THROTTLE_ZERO;
-      rc_brake = map(ch_2_PWM, 101, 255, 0, 1023);
-    }
-    // stick up, throttle on
-    else if (ch_2_PWM < -100)
-    {
-      rc_throttle = map(ch_2_PWM, -100, -255, THROTTLE_ZERO, THROTTLE_MAX);
-      rc_brake = BRAKE_ZERO;
-    }
-    // not braking or throttle
-    else if (ch_2_PWM < 100 && ch_2_PWM > -100)
-    {
-      rc_throttle = THROTTLE_ZERO;
-      rc_brake = BRAKE_ZERO;
-    }
-
-    // read steering (right stick) from RC receiver
-    int ch_1_steering = pulseIn(RC_CH_1, HIGH, 25000);
-    delay(5);
-    rc_steering = RCToSteering(ch_1_steering);
-
-    //    Serial.print("steering: ");
-    //    Serial.print(ch_1_PWM);
-    //    Serial.print("\t");
-    //    Serial.println(ch_1_steering);
-
-  */
-  // gear and brake loops select
-  setGear(gear_lever_state);
-  setBrake(brake_state);
+  //setGear(gear_lever_state);
+  //setBrake(brake_state);
   setSteering(steering_state);
 
   // listen for Jetson
   if (Serial.read() == 0xFF)
   {
-    //        Serial.println("buffer");
-
     // wait for data
-    while (!(Serial.available() > 3)) Serial.println("wait"); //Have used main serial for keyboard control
+    while (!(Serial.available() > 3)); //Have used main serial for keyboard control
 
     jetson_stop = Serial.read();
-    jetson_steer = Serial.read();
+    steer_angle = Serial.read();
     jetson_throttle = Serial.read();
     jetson_brake = Serial.read();
-    Serial.println(jetson_steer);
-    //
-    //        Serial.print(" stop: ");
-    //        Serial.print(jetson_stop);
-    //        Serial.print(" steer: ");
-    //        Serial.println(jetson_steer);
-    //        Serial.print(" jetson_throttle: ");
-    //        Serial.print(jetson_throttle);
-    //        Serial.print(" jetson_brake: ");
-    //        Serial.println(jetson_brake);
+    Serial.print("got angle: ");
+    Serial.print((int)steer_angle);
+    steer_val = STEER_MIN + (float(steer_angle)/120.0) * (STEER_MAX - STEER_MIN);
+    Serial.print("got value: ");
+    Serial.print((int)steer_val);
+    Serial.print('\n');
   }
 
   // main state machine
@@ -204,100 +164,19 @@ void loop()
         delay(1000);
         gear_lever_state = GEAR_D;
 
-        // boot Jetson - consider whether these delays are safe - might need a counter to make it asynch
-        //            delay(500);
-        //            digitalWrite(Jetson_Boot, HIGH);
-        //            delay(500);
-        //            digitalWrite(Jetson_Boot, LOW);
-
         state = DRIVE_AI;
-        break;
-      }
-    case DRIVE_RC:
-      {
-        // set/actuate all outputs
-        brake_state = rc_brake;
-        throttleServo.write(rc_throttle);
-        steering_state = rc_steering;
-
-        // if request AI transition
-        // setBrakes(BRAKE_ZERO);
-        // setThrottle(THROTTLE_ZERO);
-        // setSteering(STEER_MIDDLE);
-        // gear_lever_state = (GEAR_D);
-        // state = DRIVE_AI;
-
-        // if request stop car
-        // set to stop state
-
-        // if request reverse
-        // set to reverse state
         break;
       }
     case DRIVE_AI://keyboard control for now
       {
-        // if stop command, switch off and go back to park mode
-        //            if (jetson_stop == 1)
-        //            {
-        //                state = STOP_CAR;
-        //                break;
-        //            }
-
-        //            // set/actuate all outputs
-        //            if (jetson_brake > 0) brake_state = BRAKE_MAX;
-        //            else brake_state = BRAKE_ZERO;
         brake_state = rc_brake;
-
-        //            if (jetson_throttle > 0) throttleServo.write(THROTTLE_LOW);
-        //            else throttleServo.write(THROTTLE_ZERO);
         throttleServo.write(rc_throttle);
 
-        //            steeringServo.write(jetson_steer);
-        steering_state = jetson_steer;
-
+        //            steeringServo.write(steer_val);
+        steering_state = steer_val;
 
         break;
       }
-    //        case NEUTRAL_RC:  // neutral state, currently unused
-    //        {
-    //            setBrake.write(rc_brake);
-    //            throttleServo.write(rc_throttle);
-    //
-    //            // if RC asks for DRIVE_RC
-    //                // setBrakes(BRAKE_ZERO);
-    //                // setThrottle(THROTTLE_ZERO);
-    //                // gear_lever_state = (GEAR_D);
-    //                // state = DRIVE_RC;
-    //
-    //            // if RC asks for DRIVE_AI
-    //                // setBrakes(BRAKE_ZERO);
-    //                // setThrottle(THROTTLE_ZERO);
-    //                // setSteering(STEER_MIDDLE);
-    //                // gear_lever_state = (GEAR_D);
-    //                // state = DRIVE_AI;
-    //            break;
-    //        }
-    //        case REVERSE_RC:  // reverse state, currently unused.
-    //        {
-    //            // put gear in reverse
-    //            brake_state = rc_brake;
-    //            throttleServo.write(rc_throttle);
-    //            steering_state = rc_steering;
-    //
-    //            // if request drive forward, put in DRIVE_RC state
-    //            break;
-    //        }
-    //        case STOP_CAR:
-    //        {
-    //            brake_state = BRAKE_MAX;
-    //
-    //            stopEngine();
-    //            delay(500);
-    //            gear_lever_state = PARK;
-    //
-    //            state = PARK;
-    //            break;
-    //        }
     default:
       {
         // included for safety, should not ever end up in this state
@@ -307,6 +186,36 @@ void loop()
       }
   }
 
+}
+
+void setSteering(int newpos)
+{
+
+  //newpos = 600;
+
+  // RoboClaw Serial3 control, channel 2
+  // 128 = full reverse
+  // 192 = stop
+  // 255 = full forward
+
+  int oldpos = analogRead(Steering_Pot);
+  //Serial.print("Pot Value");
+  //Serial.println(oldpos);
+
+  int error = int(float(abs(newpos - oldpos)) / 5.0);    // crude proportional steering rate control (makes it less twitchy)
+  if ( error > 100 ) error = 100;             // then clamp value to max possible steering rate
+
+  if ( newpos <= (oldpos - STEER_TOLERANCE) )
+  {
+    // steer right
+    Serial3.write(192 + error);
+  }
+  else if ( newpos > (oldpos + STEER_TOLERANCE) )
+  {
+    // steer left
+    Serial3.write(192 - error);
+  }
+  else Serial3.write(192);  // else stop steering motor
 }
 
 void startEngine()
@@ -321,154 +230,4 @@ void stopEngine()
   digitalWrite(Battery_Relay, LOW);
   delay(1000);
   digitalWrite(Battery_Relay, HIGH);
-}
-
-void setBrake(int newpos)
-{
-  // RoboClaw Serial2 control, channel 2
-  // 128 = full reverse
-  // 192 = stop
-  // 255 = full forward
-
-  int oldpos = analogRead(Brake_Pot);
-
-  if ( newpos <= (oldpos - BRAKE_TOLERANCE) )
-  {
-    // actuate brakes off
-    Serial2.write(128);
-  }
-  else if ( newpos > (oldpos + BRAKE_TOLERANCE) )
-  {
-    // actuate brakes on
-    Serial2.write(255);
-  }
-  else Serial2.write(192);  // else stop brake motor
-}
-
-void setGear(int gearState)
-{
-  // calibrate gear positions with the numbers below
-  switch (gearState)
-  {
-    case GEAR_P:
-      //Parking
-      moveGearActuator(700);
-      break;
-    case GEAR_R:
-      //Reverse
-      moveGearActuator(555);
-      break;
-    case GEAR_N:
-      //Neutral
-      moveGearActuator(477);
-      break;
-    case GEAR_D:
-      //Drive
-      moveGearActuator(400);
-    default:
-      // statements
-      return;
-  }
-}
-
-void moveGearActuator(int newpos)
-{
-  // RoboClaw Serial2 control, channel 1
-  // 1 = full reverse
-  // 65 = stop
-  // 127 = full forward
-
-  int oldpos = analogRead(Gear_Pot);
-
-  if ( newpos <= (oldpos - GEAR_TOLERANCE) )
-  {
-    // pull shifter back
-    Serial2.write(1);
-  }
-  else if ( newpos > (oldpos + GEAR_TOLERANCE) )
-  {
-    // push shifter forward
-    Serial2.write(127);
-  }
-  else Serial2.write(64);   // else stop shifter motor
-}
-
-void setSteering(int newpos)
-{
-
-  newpos = 600;
-
-  // RoboClaw Serial3 control, channel 2
-  // 128 = full reverse
-  // 192 = stop
-  // 255 = full forward
-
-  int oldpos = analogRead(Steering_Pot);
-   Serial.print("Pot Value");
-  Serial.println(oldpos);
-
-  int error = abs(newpos - oldpos) / 8;    // crude proportional steering rate control (makes it less twitchy)
-  if ( error > 63 ) error = 63;             // then clamp value to max possible steering rate
-
-  if ( newpos <= (oldpos - STEER_TOLERANCE) )
-  {
-    // steer right
-    Serial3.write(192 + error);
-    Serial.println(error);
-    Serial.println("left");
-  }
-  else if ( newpos > (oldpos + STEER_TOLERANCE) )
-  {
-    // steer left
-    Serial.println(error);
-    Serial.println("left");
-    Serial3.write(192 - error);
-  }
-  else Serial3.write(192);  // else stop steering motor
-
-
-}
-
-int RCToThrottle(int pulse)
-{
-  if ( pulse > 1000 ) {
-    pulse = map(pulse, 1000, 2000, -500, 500);
-    pulse = constrain(pulse, -255, 255);
-  } else {
-    pulse = 0;
-  }
-
-  // Anything in deadzone should stop the motor
-  return pulse;
-}
-
-int RCToSteering(int pulse)
-{
-  if ( pulse > 1000 ) {
-    pulse = map(pulse, 1110, 1930, STEER_HARD_LEFT, STEER_HARD_RIGHT);
-  } else {
-    pulse = 0;
-  }
-
-  // Anything in deadzone should stop the motor
-  return pulse;
-}
-
-int parseJetson(String data, char separator, int index)
-{
-  int found = 0;
-  int strIndex[] = { 0, -1 };
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++) {
-    if (data.charAt(i) == separator || i == maxIndex) {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
-    }
-  }
-  String val_string = found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-  int val_integer = val_string.toInt();
-
-  return val_integer;
 }

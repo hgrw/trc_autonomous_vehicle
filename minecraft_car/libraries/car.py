@@ -1,11 +1,11 @@
 import struct
 import serial
 import time
-from settings import CAR_SERIAL_PORT
+#from settings import CAR_SERIAL_PORT
 
 
 car = serial.Serial()
-car.port = CAR_SERIAL_PORT
+car.port = '/dev/ttyACM0'
 car.baudrate = 9600
 car.open()
 

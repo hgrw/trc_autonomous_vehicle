@@ -1,10 +1,10 @@
 import time,math
-import libraries.gps as gps
+#import libraries.gps as gps
 #import libraries.imu as imu
 import libraries.car as car
 import libraries.bearings as bearings
 import libraries.pid as lpid
-import libraries.color_blob as cv
+#import libraries.color_blob as cv
 from libraries.settings import *
 
 centerOfTrack=[-27.8556425,153.151405]
@@ -97,11 +97,28 @@ def follow_point(point):
 
 if __name__ == '__main__':
     while True:
-        for point in waypoints:
-            print("GOING TO:",point)
-            follow_point(point)
+        try:
+            mode=int(raw_input('Input:'))
+            car.steer(mode)
+            car.send()
+            print 'got ', mode
+        except ValueError:
+            print "Not a number"
+        #for j in range(-10, 10):
+            #car.steer(-j)
+            #car.send()
+            #time.sleep(0.2)
+	#for i in range(-10, 10):
+            #car.steer(i)
+            #car.send()
+            #time.sleep(0.2)
+	car.steer(mode)
+        car.send()
+#        for point in waypoints:
+#            print("GOING TO:",point)
+#            follow_point(point)
             
-        print("DONE LAP")
+        #print("DONE LAP")
 
     #car.stop()
     #car.send()
