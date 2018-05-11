@@ -1,5 +1,5 @@
 #include <Servo.h>
-#include <PID_v1.h>
+//#include <PID_v1.h>
 
 // states for state machine
 #define PARK        0
@@ -48,7 +48,7 @@
 #define THROTTLE_MAX      90
 
 // steering constants
-#define STEER_MIN           300
+#define STEER_MIN           160
 #define STEER_MIDDLE        600
 #define STEER_MAX           1023
 #define STEER_TOLERANCE     10
@@ -108,7 +108,10 @@ void setup()
   steering_state = STEER_MIDDLE;
 
   // swtich car power on
-  digitalWrite(Battery_Relay, HIGH);
+  //digitalWrite(Battery_Relay, HIGH);
+  //digitalWrite(Ignition_Relay, HIGH);
+  //delay(1000);
+  //digitalWrite(Ignition_Relay, LOW);
 }
 
 
@@ -130,12 +133,12 @@ void loop()
     jetson_brake = Serial.read();
     Serial.print("got angle: ");
     Serial.print((int)steer_angle);
-    steer_val = STEER_MIN + (float(steer_angle)/120.0) * (STEER_MAX - STEER_MIN);
+    steer_val = STEER_MIN + (float(steer_angle) / 120.0) * (STEER_MAX - STEER_MIN);
     Serial.print("got value: ");
     Serial.print((int)steer_val);
     Serial.print('\n');
   }
-
+  setSteering((int)steer_val);
   // main state machine
   switch (state)
   {
@@ -200,10 +203,10 @@ void setSteering(int newpos)
 
   int oldpos = analogRead(Steering_Pot);
   //Serial.print("Pot Value");
-  //Serial.println(oldpos);
+  Serial.println(oldpos);
 
   int error = int(float(abs(newpos - oldpos)) / 5.0);    // crude proportional steering rate control (makes it less twitchy)
-  if ( error > 100 ) error = 100;             // then clamp value to max possible steering rate
+  if ( error > 63 ) error = 63;             // then clamp value to max possible steering rate
 
   if ( newpos <= (oldpos - STEER_TOLERANCE) )
   {
