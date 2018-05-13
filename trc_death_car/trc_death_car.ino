@@ -18,9 +18,9 @@
 #define GEAR_TOLERANCE  7
 
 // Brake constants
-#define BRAKE_MIN  380
-#define BRAKE_MAX   650 
-#define BRAKE_TOLERANCE 5
+#define BRAKE_MIN  360
+#define BRAKE_MAX   620 
+#define BRAKE_TOLERANCE 10
 
 // Throttle constants
 #define THROTTLE_MIN     140
@@ -30,7 +30,7 @@
 #define STEER_MIN           295 // Right
 #define STEER_MIDDLE        496 // Centre
 #define STEER_MAX           780 //Left
-#define STEER_TOLERANCE     5
+#define STEER_TOLERANCE     3
 
 // Init actuators
 Servo throttleServo;
@@ -48,6 +48,7 @@ char gear_data = 'P';
 int throttle_state = THROTTLE_MIN;
 //int brake_state = BRAKE_MIN;
 int steer_state = STEER_MIDDLE;
+int brake_pot_last;
 
 
 void setup()
@@ -77,16 +78,28 @@ void loop()
   // listen for Jetson
   if (Serial.read() == 0xFF)
   {
+    //Serial.println("Start loop");
     // wait for data
-    while (!(Serial.available() > 3)); //Have used main serial for keyboard control
+    while (!(Serial.available() > 3));
     
+    //Serial.println("Test2");
     // Read data
     steer_data = Serial.read();
     throttle_data = Serial.read();
     brake_data = Serial.read();
     gear_data = Serial.read();
+
+    Serial.print("Got ");
+    Serial.print(steer_data);
+    Serial.print(" ");
+    Serial.print(throttle_data);
+    Serial.print(" ");
+    Serial.print(brake_data);
+    Serial.print(" ");
+    Serial.println(gear_data);
    
   }
+  //Serial.println("Test2");
   setSteering((int)steer_data);
   setBrakes((int)brake_data);
   setGear((char)gear_data);
@@ -116,7 +129,7 @@ void setSteering(int steer_data)
   //Serial.print("Pot Value");
   //Serial.println(oldpos);
 
-  int error = int(float(abs(newpos - oldpos)) / 5.0);    // crude proportional steering rate control (makes it less twitchy)
+  int error = int(float(abs(newpos - oldpos)) / 2.0);    // crude proportional steering rate control (makes it less twitchy)
   if ( error > 63 ) error = 63;             // then clamp value to max possible steering rate
   
   // Update motor
@@ -143,22 +156,22 @@ void setBrakes(int brake_data)
   // 255 = full forward
 
   int oldpos = analogRead(Brake_Pot);
-  //Serial.print("Pot Value");
+  
+  //Serial.print("Brake Pot Value");
   //Serial.println(oldpos);
 
-  int error = int(float(abs(newpos - oldpos)) / 3.0);    // crude proportional steering rate control (makes it less twitchy)
-  //int error = abs(int(newpos));
-  if ( error > 63 ) error = 63;             // then clamp value to max possible steering rate
+  int error = int(newpos - oldpos); 
+  //int error = s));             // then clamp value to max possible steering rate
   
-  if ( newpos <= (oldpos - BRAKE_TOLERANCE) )
+  if ( error < 0 - BRAKE_TOLERANCE )
   {
     // steer right
-    Serial3.write(63 + error);
+    Serial3.write(63 + 62);
   }
-  else if ( newpos > (oldpos + BRAKE_TOLERANCE) )
+  else if (error > 0 + BRAKE_TOLERANCE  )
   {
     // steer left
-    Serial3.write(63 - error);
+    Serial3.write(63 - 62);
   }
   else Serial3.write(63);  // else stop steering motor
 }
@@ -185,27 +198,29 @@ void setGear(char gear_char)
    
 
   int oldpos = analogRead(Gear_Pot);
-  Serial.print("Pot Value");
-  Serial.println(oldpos);
-  Serial.print("New Value");
-  Serial.print(newpos);
+
+//  brake_pot_last = oldpos;
+  //Serial.print("Pot Value");
+  //Serial.println(oldpos);
+  //Serial.print("New Value");
+  //Serial.print(newpos);
 //  oldpos = 310; // N
   int error = int(newpos - oldpos);    
-  Serial.print("  Error:");
-  Serial.print(error);
+  //Serial.print("  Error:");
+  //Serial.print(error);
   if ( error < 0 - GEAR_TOLERANCE )
   {
     // Retract actuator
     digitalWrite(Gear_Relay_Right, LOW);
     digitalWrite(Gear_Relay_Left, HIGH);
-    Serial.print("    IN");
+    //Serial.print("    IN");
   }
   else if ( error > 0 + GEAR_TOLERANCE)
   {
     // Extract actuator
     digitalWrite(Gear_Relay_Right, HIGH);
     digitalWrite(Gear_Relay_Left, LOW);
-    Serial.print("     OUT");
+    //Serial.print("     OUT");
   }
   else  
   {
