@@ -1,6 +1,7 @@
 import struct
 import serial
 import time
+import binascii
 #from settings import CAR_SERIAL_PORT
 
 
@@ -19,6 +20,8 @@ Gear = 'N'
 def send():
     global Steer,Acceleration,Brakes,Gear
     car.write(struct.pack("<BBBBB",0xFF,Steer,Acceleration,Brakes,ord(Gear)))
+    #i = struct.pack("<BBBBB",0xFF,Steer,Acceleration,Brakes,ord(Gear))
+    #print(binascii.hexlify(i))
 
 
 def stop():
